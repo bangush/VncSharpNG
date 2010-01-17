@@ -1,0 +1,7 @@
+VncSharp/bin
+VncSharp/obj
+VncSharp/publish
+*.pfx
+*.suo
+*.csproj.user
+Thumbs.db
