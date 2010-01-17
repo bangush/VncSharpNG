@@ -1,13 +1,14 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-[assembly: AssemblyTitle("VncSharp")]
+[assembly: AssemblyTitle("VncSharpNG")]
 [assembly: AssemblyDescription(".NET VNC Client Library")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("David Humphrey")]
-[assembly: AssemblyProduct("")]
-[assembly: AssemblyCopyright("GPL 2")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("VncSharpNG")]
+[assembly: AssemblyCopyright("Copyright © 2004-2010 David Humphrey, Riley McArdle")]
 [assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("")]		
+[assembly: AssemblyCulture("")]
 
-[assembly: AssemblyVersion("1.0.0")]
+[assembly: AssemblyVersion("1.1.0")]
+[assembly: AssemblyFileVersionAttribute("1.1.0")]

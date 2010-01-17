@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>VncSharp</RootNamespace>
-    <AssemblyName>VncSharp</AssemblyName>
+    <AssemblyName>VncSharpNG</AssemblyName>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>VncSharpKey.snk</AssemblyOriginatorKeyFile>
     <ApplicationIcon>vncviewer.ico</ApplicationIcon>

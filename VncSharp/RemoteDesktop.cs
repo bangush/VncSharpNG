@@ -395,6 +395,23 @@ namespace VncSharp
             vnc.SetInputMode(viewOnly);
         }
 
+        [DefaultValue(false)]
+        [Description("True if view-only mode is desired (no mouse/keyboard events will be sent)")]
+        /// <summary>
+        /// True if view-only mode is desired (no mouse/keyboard events will be sent).
+        /// </summary>
+        public bool ViewOnly
+        {
+            get
+            {
+                return vnc.IsViewOnly;
+            }
+            set
+            {
+                SetInputMode(value);
+            }
+        }
+        
         /// <summary>
         /// Set the remote desktop's scaling mode.
         /// </summary>
@@ -411,6 +428,23 @@ namespace VncSharp
             AutoScrollMinSize = desktopPolicy.AutoScrollMinSize;
 
             Invalidate();
+        }
+
+        [DefaultValue(false)]
+        [Description("Determines whether to use desktop scaling or leave it normal and clip")]
+        /// <summary>
+        /// Determines whether to use desktop scaling or leave it normal and clip.
+        /// </summary>
+        public bool Scaled
+        {
+            get
+            {
+                return desktopPolicy.GetType() == typeof(VncScaledDesktopPolicy);
+            }
+            set
+            {
+                SetScalingMode(value);
+            }
         }
 
 		/// <summary>
