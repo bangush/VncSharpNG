@@ -779,7 +779,7 @@ namespace VncSharp
 		// ManageKeyDownAndKeyUp, OnKeyPress, OnKeyUp, OnKeyDown.
 		private void ManageKeyDownAndKeyUp(KeyEventArgs e, bool isDown)
 		{
-		    UInt32 keyChar;
+            UInt32 keyChar = (UInt32)e.KeyCode; //BUG FIX: Set default keyChar value in event of modifier key (ThrillerAtPlay)
 		    bool isProcessed = true;
 		    switch(e.KeyCode)
 		    {
@@ -823,8 +823,11 @@ namespace VncSharp
 				    keyChar = 0x0000FFBE + ((UInt32)e.KeyCode - (UInt32)Keys.F1);
 				    break;
 			    default:
-				    keyChar = 0;
-				    isProcessed = false;
+                    if (!e.Alt && !e.Control) //BUG FIX: Correctly account for modifier key (ThrillerAtPlay)
+                    {
+                        keyChar = 0;
+                        isProcessed = false;
+                    }
 				    break;
 		    }
 
