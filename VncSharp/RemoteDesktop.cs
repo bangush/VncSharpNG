@@ -17,6 +17,7 @@
 
 using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Reflection;
 using System.Windows.Forms;
@@ -774,6 +775,10 @@ namespace VncSharp
 			}
 		}
 
+        [DllImport("user32.dll")]
+        static extern ushort GetKeyState(int nVirtKey);
+        protected const int VK_RMENU = 0xA5;
+
 		// Thanks to Lionel Cuir, Christian and the other developers at 
 		// Aulofee.com for cleaning-up my keyboard code, specifically:
 		// ManageKeyDownAndKeyUp, OnKeyPress, OnKeyUp, OnKeyDown.
@@ -798,12 +803,18 @@ namespace VncSharp
 			    case Keys.ShiftKey:			keyChar = 0x0000FFE1;		break;
 
                 // BUG FIX -- added proper Alt/CTRL support (Edward Cooke)
-                case Keys.Alt:              keyChar = 0x0000FFE9;       break;
+                case Keys.Alt:
+                case Keys.Menu: // Alt and Menu are the same thing
+                    if ((GetKeyState(VK_RMENU) & 0x4000) != 0)
+                        keyChar = 0x0000FFEA; // Right Alt
+                    else
+                        keyChar = 0x0000FFE9; // Left Alt
+                    break;
+                    
                 case Keys.ControlKey:       keyChar = 0x0000FFE3;       break;
                 case Keys.LControlKey:      keyChar = 0x0000FFE3;       break;
                 case Keys.RControlKey:      keyChar = 0x0000FFE4;       break;
 			
-			    case Keys.Menu:				keyChar = 0x0000FFE9;		break;
 			    case Keys.Delete:			keyChar = 0x0000FFFF;		break;
 			    case Keys.LWin:				keyChar = 0x0000FFEB;		break;
 			    case Keys.RWin:				keyChar = 0x0000FFEC;		break;
