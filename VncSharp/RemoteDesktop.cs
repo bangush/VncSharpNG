@@ -16,16 +16,14 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
-using System.Threading;
+using System.Security.Permissions;
 using System.Reflection;
 using System.Windows.Forms;
 using System.ComponentModel;
 using System.Drawing.Imaging;
-using System.Drawing.Drawing2D;
-
-using VncSharp.Encodings;
 
 namespace VncSharp
 {
@@ -756,150 +754,155 @@ namespace VncSharp
 			}
 		}
 
-		// Handle Keyboard Events:		 -------------------------------------------
-		// These keys don't normally throw an OnKeyDown event. Returning true here fixes this.
-		protected override bool IsInputKey(Keys keyData)
-		{
-			switch (keyData) {
-				case Keys.Tab:
-				case Keys.Up:
-				case Keys.Down:
-				case Keys.Left:
-				case Keys.Right:
-				case Keys.Shift:
-				case Keys.RWin:
-				case Keys.LWin:
-					return true;
-				default:
-					return base.IsInputKey(keyData);
-			}
-		}
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool GetKeyboardState(byte[] lpKeyState);
 
         [DllImport("user32.dll")]
-        static extern ushort GetKeyState(int nVirtKey);
-        protected const int VK_RMENU = 0xA5;
+        static extern uint MapVirtualKey(uint uCode, uint uMapType);
 
-		// Thanks to Lionel Cuir, Christian and the other developers at 
-		// Aulofee.com for cleaning-up my keyboard code, specifically:
-		// ManageKeyDownAndKeyUp, OnKeyPress, OnKeyUp, OnKeyDown.
-		private void ManageKeyDownAndKeyUp(KeyEventArgs e, bool isDown)
-		{
-            UInt32 keyChar = (UInt32)e.KeyCode; //BUG FIX: Set default keyChar value in event of modifier key (ThrillerAtPlay)
-		    bool isProcessed = true;
-		    switch(e.KeyCode)
-		    {
-			    case Keys.Tab:				keyChar = 0x0000FF09;		break;
-			    case Keys.Enter:			keyChar = 0x0000FF0D;		break;
-			    case Keys.Escape:			keyChar = 0x0000FF1B;		break;
-			    case Keys.Home:				keyChar = 0x0000FF50;		break;
-			    case Keys.Left:				keyChar = 0x0000FF51;		break;
-			    case Keys.Up:				keyChar = 0x0000FF52;		break;
-			    case Keys.Right:			keyChar = 0x0000FF53;		break;
-			    case Keys.Down:				keyChar = 0x0000FF54;		break;
-			    case Keys.PageUp:			keyChar = 0x0000FF55;		break;
-			    case Keys.PageDown:			keyChar = 0x0000FF56;		break;
-			    case Keys.End:				keyChar = 0x0000FF57;		break;
-			    case Keys.Insert:			keyChar = 0x0000FF63;		break;
-			    case Keys.ShiftKey:			keyChar = 0x0000FFE1;		break;
+        [DllImport("user32.dll")]
+        static extern int ToAscii(uint uVirtKey, uint uScanCode, byte[] lpKeyState, byte[] lpwTransKey, uint fuState);
 
-                // BUG FIX -- added proper Alt/CTRL support (Edward Cooke)
-                case Keys.Alt:
-                case Keys.Menu: // Alt and Menu are the same thing
-                    if ((GetKeyState(VK_RMENU) & 0x4000) != 0)
-                        keyChar = 0x0000FFEA; // Right Alt
-                    else
-                        keyChar = 0x0000FFE9; // Left Alt
-                    break;
-                    
-                case Keys.ControlKey:       keyChar = 0x0000FFE3;       break;
-                case Keys.LControlKey:      keyChar = 0x0000FFE3;       break;
-                case Keys.RControlKey:      keyChar = 0x0000FFE4;       break;
-			
-			    case Keys.Delete:			keyChar = 0x0000FFFF;		break;
-			    case Keys.LWin:				keyChar = 0x0000FFEB;		break;
-			    case Keys.RWin:				keyChar = 0x0000FFEC;		break;
-			    case Keys.Apps:				keyChar = 0x0000FFEE;		break;
-			    case Keys.F1:
-			    case Keys.F2:
-			    case Keys.F3:
-			    case Keys.F4:
-			    case Keys.F5:
-			    case Keys.F6:
-			    case Keys.F7:
-			    case Keys.F8:
-			    case Keys.F9:
-			    case Keys.F10:
-			    case Keys.F11:
-			    case Keys.F12:
-				    keyChar = 0x0000FFBE + ((UInt32)e.KeyCode - (UInt32)Keys.F1);
-				    break;
-			    default:
-                    if (!e.Alt && !e.Control) //BUG FIX: Correctly account for modifier key (ThrillerAtPlay)
-                    {
-                        keyChar = 0;
-                        isProcessed = false;
-                    }
-				    break;
-		    }
+        protected const int WM_CHAR = 0x0102;
+        protected const int WM_KEYDOWN = 0x0100;
+        protected const int WM_SYSKEYDOWN = 0x0104;
+        protected const int WM_KEYUP = 0x0101;
+        protected const int WM_SYSKEYUP = 0x0105;
+        protected const int WM_IME_CHAR = 0x0286;
 
-		    if(isProcessed)
-		    {
-			    vnc.WriteKeyboardEvent(keyChar, isDown);
-			    e.Handled = true;
-		    }
-		}
+        protected const UInt16 VK_CONTROL = 0x0011;
+        protected const UInt16 VK_MENU = 0x0012;
+        protected const UInt16 VK_LCONTROL = 0x00A2;
+        protected const UInt16 VK_RCONTROL = 0x00A3;
+        protected const UInt16 VK_LMENU = 0x00A4;
+        protected const UInt16 VK_RMENU = 0x00A5;
 
-		// HACK: the following overrides do a double check on DesignMode so 
-		// that if still in design mode, no messages are sent for 
-		// mouse/keyboard events (i.e., there won't be Host yet--
-		// NullReferenceException)			
-		protected override void OnKeyPress(KeyPressEventArgs e)
-		{
-			base.OnKeyPress (e);
-		    if (DesignMode || !IsConnected)
-			    return;
-			
-		    if (e.Handled)
-			    return;
-	
-		    if(Char.IsLetterOrDigit(e.KeyChar) || Char.IsWhiteSpace(e.KeyChar) || Char.IsPunctuation(e.KeyChar) ||
-			    e.KeyChar == '~' || e.KeyChar == '`' || e.KeyChar == '<' || e.KeyChar == '>' ||
-			    e.KeyChar == '|' || e.KeyChar == '=' || e.KeyChar == '+' || e.KeyChar == '$' || e.KeyChar == '^')
-		    {
-			    vnc.WriteKeyboardEvent((UInt32)e.KeyChar, true);
-			    vnc.WriteKeyboardEvent((UInt32)e.KeyChar, false);
-		    }
-		    else if(e.KeyChar == '\b')
-		    {
-			    UInt32 keyChar = ((UInt32)'\b') | 0x0000FF00;
-			    vnc.WriteKeyboardEvent(keyChar, true);
-			    vnc.WriteKeyboardEvent(keyChar, false);
-		    }
-		}
+        protected const UInt16 XK_Control_L = 0xFFE3;
+        protected const UInt16 XK_Control_R = 0xFFE4;
+        protected const UInt16 XK_Meta_L = 0xFFE7;
+        protected const UInt16 XK_Meta_R = 0xFFE8;
+        protected const UInt16 XK_Alt_L = 0xFFE9;
+        protected const UInt16 XK_Alt_R = 0xFFEA;
 
-		protected override void OnKeyDown(KeyEventArgs e)
-		{
-            if (DesignMode || !IsConnected)
-				return;
+        protected const byte KEY_STATE_DOWN = 0x80;
 
-			ManageKeyDownAndKeyUp(e, true);
-			if(e.Handled)
-				return;
+        [SecurityPermissionAttribute(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
+        [SecurityPermissionAttribute(SecurityAction.InheritanceDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
+        protected override bool ProcessKeyEventArgs(ref Message m)
+        {
+            if (DesignMode || !IsConnected || !(m.Msg == WM_KEYDOWN || m.Msg == WM_SYSKEYDOWN))
+                return base.ProcessKeyEventArgs(ref m);
 
-			base.OnKeyDown(e);
-		}
+            var keyboardState = new byte[256];
+            if (!GetKeyboardState(keyboardState))
+                throw new Win32Exception(Marshal.GetLastWin32Error());
 
-		protected override void OnKeyUp(KeyEventArgs e)
-		{
-            if (DesignMode || !IsConnected)
-				return;
+            var maskedKeyboardState = new byte[256];
+            keyboardState.CopyTo(maskedKeyboardState, 0);
+            maskedKeyboardState[VK_CONTROL] = 0;
+            maskedKeyboardState[VK_LCONTROL] = 0;
+            maskedKeyboardState[VK_RCONTROL] = 0;
+            maskedKeyboardState[VK_MENU] = 0;
+            maskedKeyboardState[VK_LMENU] = 0;
+            maskedKeyboardState[VK_RMENU] = 0;
 
-			ManageKeyDownAndKeyUp(e, false);
-			if (e.Handled)
-				return;
+            var virtualKey = Convert.ToUInt16(m.WParam.ToInt32());
+            var rfbKeyCode = TranslateVirtualKey(virtualKey);
 
-			base.OnKeyDown(e);
-		}
+            var charResult = new byte[2];
+            var charCount = ToAscii(virtualKey, MapVirtualKey(virtualKey, 0), maskedKeyboardState, charResult, 0);
+
+            if (rfbKeyCode == virtualKey && charCount > 0)
+                rfbKeyCode = Convert.ToUInt16(charResult[0]);
+
+            UInt16 modifierKeyCode = 0;
+            if ((keyboardState[VK_RCONTROL] & KEY_STATE_DOWN) != 0)
+                modifierKeyCode = XK_Control_R; // Right Control
+            else if ((keyboardState[VK_LCONTROL] & KEY_STATE_DOWN) != 0)
+                modifierKeyCode = XK_Control_L; // Left Control
+
+            if ((keyboardState[VK_RMENU] & KEY_STATE_DOWN) != 0)
+                // check right Alt first to ensure AltGr is processed correctly
+                modifierKeyCode = XK_Alt_R; // Right Alt
+            else if ((keyboardState[VK_LMENU] & KEY_STATE_DOWN) != 0)
+                modifierKeyCode = XK_Alt_L; // Left Alt
+
+            if (modifierKeyCode != 0) vnc.WriteKeyboardEvent(modifierKeyCode, true);
+            vnc.WriteKeyboardEvent(Convert.ToUInt16(rfbKeyCode), true);
+            vnc.WriteKeyboardEvent(Convert.ToUInt16(rfbKeyCode), false);
+            if (modifierKeyCode != 0) vnc.WriteKeyboardEvent(modifierKeyCode, false);
+
+            return true;
+        }
+
+        protected static Dictionary<UInt16, UInt16> KeyTranslationTable = new Dictionary<UInt16, UInt16>
+        {
+            { 0x0003, 0xFF69 }, // VK_CANCEL    XK_Cancel
+            { 0x0008, 0xFF08 }, // VK_BACK      XK_BackSpace
+            { 0x0009, 0xFF09 }, // VK_TAB       XK_Tab
+            { 0x000C, 0xFF0B }, // VK_CLEAR     XK_Clear
+            { 0x000D, 0xFF0D }, // VK_RETURN    XK_Return
+            { 0x0013, 0xFF13 }, // VK_PAUSE     XK_Pause
+            { 0x001B, 0xFF1B }, // VK_ESCAPE    XK_Escape
+            { 0x002C, 0xFF15 }, // VK_SNAPSHOT  XK_Sys_Req
+            { 0x002D, 0xFF63 }, // VK_INSERT    XK_Insert
+            { 0x002E, 0xFFFF }, // VK_DELETE    XK_Delete
+            { 0x0024, 0xFF50 }, // VK_HOME      XK_Home
+            { 0x0023, 0xFF57 }, // VK_END       XK_End
+            { 0x0021, 0xFF55 }, // VK_PRIOR     XK_Prior        Page Up
+            { 0x0022, 0xFF56 }, // VK_NEXT      XK_Next         Page Down
+            { 0x0025, 0xFF51 }, // VK_LEFT      XK_Left
+            { 0x0026, 0xFF52 }, // VK_UP        XK_Up
+            { 0x0027, 0xFF53 }, // VK_RIGHT     XK_Right
+            { 0x0028, 0xFF54 }, // VK_DOWN      XK_Down
+            { 0x0029, 0xFF60 }, // VK_SELECT    XK_Select
+            { 0x002A, 0xFF61 }, // VK_PRINT     XK_Print
+            { 0x002B, 0xFF62 }, // VK_EXECUTE   XK_Execute
+            { 0x002F, 0xFF6A }, // VK_HELP      XK_Help
+          //{ 0x0000, 0xFF6B }, //              XK_Break
+            { 0x0070, 0xFFBE }, // VK_F1        XK_F1
+            { 0x0071, 0xFFBF }, // VK_F2        XK_F2
+            { 0x0072, 0xFFC0 }, // VK_F3        XK_F3
+            { 0x0073, 0xFFC1 }, // VK_F4        XK_F4
+            { 0x0074, 0xFFC2 }, // VK_F5        XK_F5
+            { 0x0075, 0xFFC3 }, // VK_F6        XK_F6
+            { 0x0076, 0xFFC4 }, // VK_F7        XK_F7
+            { 0x0077, 0xFFC5 }, // VK_F8        XK_F8
+            { 0x0078, 0xFFC6 }, // VK_F9        XK_F9
+            { 0x0079, 0xFFC7 }, // VK_F10       XK_F10
+            { 0x007A, 0xFFC8 }, // VK_F11       XK_F11
+            { 0x007B, 0xFFC9 }, // VK_F12       XK_F12
+            { 0x0010, 0xFFE1 }, // VK_SHIFT
+            { 0x00A0, 0xFFE1 }, // VK_LSHIFT    XK_Shift_L
+            { 0x00A1, 0xFFE2 }, // VK_RSHIFT    XK_Shift_R
+            { 0x0011, 0xFFE3 }, // VK_CONTROL
+            { 0x00A2, 0xFFE3 }, // VK_LCONTROL  XK_Control_L
+            { 0x00A3, 0xFFE4 }, // VK_RCONTROL  XK_Control_R
+            { 0x0012, 0xFFE9 }, // VK_MENU                      Alt
+            { 0x00A4, 0xFFE9 }, // VK_LMENU     XK_Alt_L        Left Alt
+            { 0x00A5, 0xFFEA }, // VK_RMENU     XK_Alt_R        Right Alt
+            { 0x005B, 0xFFEB }, // VK_LWIN      XK_Super_L      Left Windows Key
+            { 0x005C, 0xFFEC }, // VK_RWIN      XK_Super_R      Right Windows Key
+            { 0x005D, 0xFF67 }, // VK_APPS      XK_Menu         Menu Key
+          //{ 0x0000, 0xFFE7 }, //              XK_Meta_L
+          //{ 0x0000, 0xFFE8 }, //              XK_Meta_R
+          //{ 0x0000, 0xFFED }, //              XK_Hyper_L
+          //{ 0x0000, 0xFFEE }, //              XK_Hyper_R
+        };
+
+        public static UInt16 TranslateVirtualKey(UInt16 virtualKey)
+        {
+            if (KeyTranslationTable.ContainsKey(virtualKey))
+                return KeyTranslationTable[virtualKey];
+            else
+                return virtualKey;
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            return ProcessKeyEventArgs(ref msg);
+        }
 
 		/// <summary>
 		/// Sends a keyboard combination that would otherwise be reserved for the client PC.
