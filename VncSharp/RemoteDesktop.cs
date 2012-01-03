@@ -55,7 +55,7 @@ namespace VncSharp
 	/// </summary>
 	public class RemoteDesktop : Panel
 	{
-		[Description("Raised after a successful call to the Connect() method.")]
+	    [Description("Raised after a successful call to the Connect() method.")]
 		/// <summary>
 		/// Raised after a successful call to the Connect() method.  Includes information for updating the local display in ConnectEventArgs.
 		/// </summary>
@@ -86,6 +86,8 @@ namespace VncSharp
 		bool fullScreenRefresh = false;		     // Whether or not to request the entire remote screen be sent.
         VncDesktopTransformPolicy desktopPolicy;
 		RuntimeState state = RuntimeState.Disconnected;
+
+	    private KeyboardHook _keyboardHook = new KeyboardHook();
 
 		private enum RuntimeState {
 			Disconnected,
@@ -452,29 +454,41 @@ namespace VncSharp
 		/// <exception cref="System.InvalidOperationException">Thrown if the RemoteDesktop control is already in the Connected state.  See <see cref="VncSharp.RemoteDesktop.IsConnected" />.</exception>		
 		protected void Initialize()
 		{
-			// Finish protocol handshake with host now that authentication is done.
-			InsureConnection(false);
-			vnc.Initialize();
-			SetState(RuntimeState.Connected);
-			
-			// Create a buffer on which updated rectangles will be drawn and draw a "please wait..." 
-			// message on the buffer for initial display until we start getting rectangles
-			SetupDesktop();
-	
-			// Tell the user of this control the necessary info about the desktop in order to setup the display
-			OnConnectComplete(new ConnectEventArgs(vnc.Framebuffer.Width,
-												   vnc.Framebuffer.Height, 
-												   vnc.Framebuffer.DesktopName));
+		    // Finish protocol handshake with host now that authentication is done.
+		    InsureConnection(false);
+		    vnc.Initialize();
+		    SetState(RuntimeState.Connected);
 
-            // Refresh scroll properties
-            AutoScrollMinSize = desktopPolicy.AutoScrollMinSize;
+		    // Create a buffer on which updated rectangles will be drawn and draw a "please wait..." 
+		    // message on the buffer for initial display until we start getting rectangles
+		    SetupDesktop();
 
-			// Start getting updates from the remote host (vnc.StartUpdates will begin a worker thread).
-			vnc.VncUpdate += new VncUpdateHandler(VncUpdate);
-			vnc.StartUpdates();
-		}
+		    // Tell the user of this control the necessary info about the desktop in order to setup the display
+		    OnConnectComplete(new ConnectEventArgs(vnc.Framebuffer.Width,
+		                                           vnc.Framebuffer.Height,
+		                                           vnc.Framebuffer.DesktopName));
 
-		private void SetState(RuntimeState newState)
+		    // Refresh scroll properties
+		    AutoScrollMinSize = desktopPolicy.AutoScrollMinSize;
+
+		    // Start getting updates from the remote host (vnc.StartUpdates will begin a worker thread).
+		    vnc.VncUpdate += new VncUpdateHandler(VncUpdate);
+		    vnc.StartUpdates();
+
+            KeyboardHook.RequestKeyNotification(this.Handle, Win32.VK_LWIN, true);
+            KeyboardHook.RequestKeyNotification(this.Handle, Win32.VK_RWIN, true);
+            KeyboardHook.RequestKeyNotification(this.Handle, Win32.VK_ESCAPE, KeyboardHook.ModifierKeys.Control, true);
+            KeyboardHook.RequestKeyNotification(this.Handle, Win32.VK_TAB, KeyboardHook.ModifierKeys.Alt, true);
+
+            // TODO: figure out why Alt-Shift isn't blocked
+            //KeyboardHook.RequestKeyNotification(this.Handle, Win32.VK_SHIFT, KeyboardHook.ModifierKeys.Alt, true);
+            //KeyboardHook.RequestKeyNotification(this.Handle, Win32.VK_MENU, KeyboardHook.ModifierKeys.Shift, true);
+
+            // TODO: figure out why PrtScn doesn't work
+            //KeyboardHook.RequestKeyNotification(this.Handle, Win32.VK_SNAPSHOT, true);
+        }
+
+	    private void SetState(RuntimeState newState)
 		{
 			state = newState;
 			
@@ -579,6 +593,17 @@ namespace VncSharp
 			}
 			base.Dispose(disposing);
 		}
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == KeyboardHook.HookKeyMsg)
+            {
+                var msgData = (KeyboardHook.HookKeyMsgData)Marshal.PtrToStructure(m.LParam, typeof(KeyboardHook.HookKeyMsgData));
+                HandleKeyboardEvent(m.WParam.ToInt32(), msgData.KeyCode, msgData.ModifierKeys);
+            }
+            else
+                base.WndProc(ref m);
+        }
 
 		protected override void OnPaint(PaintEventArgs pe)
 		{
@@ -754,154 +779,172 @@ namespace VncSharp
 			}
 		}
 
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool GetKeyboardState(byte[] lpKeyState);
-
-        [DllImport("user32.dll")]
-        static extern uint MapVirtualKey(uint uCode, uint uMapType);
-
-        [DllImport("user32.dll")]
-        static extern int ToAscii(uint uVirtKey, uint uScanCode, byte[] lpKeyState, byte[] lpwTransKey, uint fuState);
-
-        protected const int WM_CHAR = 0x0102;
-        protected const int WM_KEYDOWN = 0x0100;
-        protected const int WM_SYSKEYDOWN = 0x0104;
-        protected const int WM_KEYUP = 0x0101;
-        protected const int WM_SYSKEYUP = 0x0105;
-        protected const int WM_IME_CHAR = 0x0286;
-
-        protected const UInt16 VK_CONTROL = 0x0011;
-        protected const UInt16 VK_MENU = 0x0012;
-        protected const UInt16 VK_LCONTROL = 0x00A2;
-        protected const UInt16 VK_RCONTROL = 0x00A3;
-        protected const UInt16 VK_LMENU = 0x00A4;
-        protected const UInt16 VK_RMENU = 0x00A5;
-
-        protected const UInt16 XK_Control_L = 0xFFE3;
-        protected const UInt16 XK_Control_R = 0xFFE4;
-        protected const UInt16 XK_Meta_L = 0xFFE7;
-        protected const UInt16 XK_Meta_R = 0xFFE8;
-        protected const UInt16 XK_Alt_L = 0xFFE9;
-        protected const UInt16 XK_Alt_R = 0xFFEA;
-
-        protected const byte KEY_STATE_DOWN = 0x80;
-
         [SecurityPermissionAttribute(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
         [SecurityPermissionAttribute(SecurityAction.InheritanceDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
         protected override bool ProcessKeyEventArgs(ref Message m)
         {
-            if (DesignMode || !IsConnected || !(m.Msg == WM_KEYDOWN || m.Msg == WM_SYSKEYDOWN))
-                return base.ProcessKeyEventArgs(ref m);
-
-            var keyboardState = new byte[256];
-            if (!GetKeyboardState(keyboardState))
-                throw new Win32Exception(Marshal.GetLastWin32Error());
-
-            var maskedKeyboardState = new byte[256];
-            keyboardState.CopyTo(maskedKeyboardState, 0);
-            maskedKeyboardState[VK_CONTROL] = 0;
-            maskedKeyboardState[VK_LCONTROL] = 0;
-            maskedKeyboardState[VK_RCONTROL] = 0;
-            maskedKeyboardState[VK_MENU] = 0;
-            maskedKeyboardState[VK_LMENU] = 0;
-            maskedKeyboardState[VK_RMENU] = 0;
-
-            var virtualKey = Convert.ToUInt16(m.WParam.ToInt32());
-            var rfbKeyCode = TranslateVirtualKey(virtualKey);
-
-            var charResult = new byte[2];
-            var charCount = ToAscii(virtualKey, MapVirtualKey(virtualKey, 0), maskedKeyboardState, charResult, 0);
-
-            if (rfbKeyCode == virtualKey && charCount > 0)
-                rfbKeyCode = Convert.ToUInt16(charResult[0]);
-
-            UInt16 modifierKeyCode = 0;
-            if ((keyboardState[VK_RCONTROL] & KEY_STATE_DOWN) != 0)
-                modifierKeyCode = XK_Control_R; // Right Control
-            else if ((keyboardState[VK_LCONTROL] & KEY_STATE_DOWN) != 0)
-                modifierKeyCode = XK_Control_L; // Left Control
-
-            if ((keyboardState[VK_RMENU] & KEY_STATE_DOWN) != 0)
-                // check right Alt first to ensure AltGr is processed correctly
-                modifierKeyCode = XK_Alt_R; // Right Alt
-            else if ((keyboardState[VK_LMENU] & KEY_STATE_DOWN) != 0)
-                modifierKeyCode = XK_Alt_L; // Left Alt
-
-            if (modifierKeyCode != 0) vnc.WriteKeyboardEvent(modifierKeyCode, true);
-            vnc.WriteKeyboardEvent(Convert.ToUInt16(rfbKeyCode), true);
-            vnc.WriteKeyboardEvent(Convert.ToUInt16(rfbKeyCode), false);
-            if (modifierKeyCode != 0) vnc.WriteKeyboardEvent(modifierKeyCode, false);
-
-            return true;
-        }
-
-        protected static Dictionary<UInt16, UInt16> KeyTranslationTable = new Dictionary<UInt16, UInt16>
-        {
-            { 0x0003, 0xFF69 }, // VK_CANCEL    XK_Cancel
-            { 0x0008, 0xFF08 }, // VK_BACK      XK_BackSpace
-            { 0x0009, 0xFF09 }, // VK_TAB       XK_Tab
-            { 0x000C, 0xFF0B }, // VK_CLEAR     XK_Clear
-            { 0x000D, 0xFF0D }, // VK_RETURN    XK_Return
-            { 0x0013, 0xFF13 }, // VK_PAUSE     XK_Pause
-            { 0x001B, 0xFF1B }, // VK_ESCAPE    XK_Escape
-            { 0x002C, 0xFF15 }, // VK_SNAPSHOT  XK_Sys_Req
-            { 0x002D, 0xFF63 }, // VK_INSERT    XK_Insert
-            { 0x002E, 0xFFFF }, // VK_DELETE    XK_Delete
-            { 0x0024, 0xFF50 }, // VK_HOME      XK_Home
-            { 0x0023, 0xFF57 }, // VK_END       XK_End
-            { 0x0021, 0xFF55 }, // VK_PRIOR     XK_Prior        Page Up
-            { 0x0022, 0xFF56 }, // VK_NEXT      XK_Next         Page Down
-            { 0x0025, 0xFF51 }, // VK_LEFT      XK_Left
-            { 0x0026, 0xFF52 }, // VK_UP        XK_Up
-            { 0x0027, 0xFF53 }, // VK_RIGHT     XK_Right
-            { 0x0028, 0xFF54 }, // VK_DOWN      XK_Down
-            { 0x0029, 0xFF60 }, // VK_SELECT    XK_Select
-            { 0x002A, 0xFF61 }, // VK_PRINT     XK_Print
-            { 0x002B, 0xFF62 }, // VK_EXECUTE   XK_Execute
-            { 0x002F, 0xFF6A }, // VK_HELP      XK_Help
-          //{ 0x0000, 0xFF6B }, //              XK_Break
-            { 0x0070, 0xFFBE }, // VK_F1        XK_F1
-            { 0x0071, 0xFFBF }, // VK_F2        XK_F2
-            { 0x0072, 0xFFC0 }, // VK_F3        XK_F3
-            { 0x0073, 0xFFC1 }, // VK_F4        XK_F4
-            { 0x0074, 0xFFC2 }, // VK_F5        XK_F5
-            { 0x0075, 0xFFC3 }, // VK_F6        XK_F6
-            { 0x0076, 0xFFC4 }, // VK_F7        XK_F7
-            { 0x0077, 0xFFC5 }, // VK_F8        XK_F8
-            { 0x0078, 0xFFC6 }, // VK_F9        XK_F9
-            { 0x0079, 0xFFC7 }, // VK_F10       XK_F10
-            { 0x007A, 0xFFC8 }, // VK_F11       XK_F11
-            { 0x007B, 0xFFC9 }, // VK_F12       XK_F12
-            { 0x0010, 0xFFE1 }, // VK_SHIFT
-            { 0x00A0, 0xFFE1 }, // VK_LSHIFT    XK_Shift_L
-            { 0x00A1, 0xFFE2 }, // VK_RSHIFT    XK_Shift_R
-            { 0x0011, 0xFFE3 }, // VK_CONTROL
-            { 0x00A2, 0xFFE3 }, // VK_LCONTROL  XK_Control_L
-            { 0x00A3, 0xFFE4 }, // VK_RCONTROL  XK_Control_R
-            { 0x0012, 0xFFE9 }, // VK_MENU                      Alt
-            { 0x00A4, 0xFFE9 }, // VK_LMENU     XK_Alt_L        Left Alt
-            { 0x00A5, 0xFFEA }, // VK_RMENU     XK_Alt_R        Right Alt
-            { 0x005B, 0xFFEB }, // VK_LWIN      XK_Super_L      Left Windows Key
-            { 0x005C, 0xFFEC }, // VK_RWIN      XK_Super_R      Right Windows Key
-            { 0x005D, 0xFF67 }, // VK_APPS      XK_Menu         Menu Key
-          //{ 0x0000, 0xFFE7 }, //              XK_Meta_L
-          //{ 0x0000, 0xFFE8 }, //              XK_Meta_R
-          //{ 0x0000, 0xFFED }, //              XK_Hyper_L
-          //{ 0x0000, 0xFFEE }, //              XK_Hyper_R
-        };
-
-        public static UInt16 TranslateVirtualKey(UInt16 virtualKey)
-        {
-            if (KeyTranslationTable.ContainsKey(virtualKey))
-                return KeyTranslationTable[virtualKey];
-            else
-                return virtualKey;
+            return HandleKeyboardEvent(m.Msg, m.WParam.ToInt32(), KeyboardHook.GetModifierKeyState());
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             return ProcessKeyEventArgs(ref msg);
+        }
+
+        protected static Dictionary<Int32, Int32> KeyTranslationTable = new Dictionary<Int32, Int32>
+        {
+            { Win32.VK_CANCEL, RfbProtocol.XK_Cancel },
+            { Win32.VK_BACK, RfbProtocol.XK_BackSpace },
+            { Win32.VK_TAB, RfbProtocol.XK_Tab },
+            { Win32.VK_CLEAR, RfbProtocol.XK_Clear },
+            { Win32.VK_RETURN, RfbProtocol.XK_Return },
+            { Win32.VK_PAUSE, RfbProtocol.XK_Pause },
+            { Win32.VK_ESCAPE, RfbProtocol.XK_Escape },
+            { Win32.VK_SNAPSHOT, RfbProtocol.XK_Sys_Req },
+            { Win32.VK_INSERT, RfbProtocol.XK_Insert },
+            { Win32.VK_DELETE, RfbProtocol.XK_Delete },
+            { Win32.VK_HOME, RfbProtocol.XK_Home },
+            { Win32.VK_END, RfbProtocol.XK_End },
+            { Win32.VK_PRIOR, RfbProtocol.XK_Prior }, // Page Up
+            { Win32.VK_NEXT, RfbProtocol.XK_Next }, // Page Down
+            { Win32.VK_LEFT, RfbProtocol.XK_Left },
+            { Win32.VK_UP, RfbProtocol.XK_Up },
+            { Win32.VK_RIGHT, RfbProtocol.XK_Right },
+            { Win32.VK_DOWN, RfbProtocol.XK_Down },
+            { Win32.VK_SELECT, RfbProtocol.XK_Select },
+            { Win32.VK_PRINT, RfbProtocol.XK_Print },
+            { Win32.VK_EXECUTE, RfbProtocol.XK_Execute },
+            { Win32.VK_HELP, RfbProtocol.XK_Help },
+            { Win32.VK_F1, RfbProtocol.XK_F1 },
+            { Win32.VK_F2, RfbProtocol.XK_F2 },
+            { Win32.VK_F3, RfbProtocol.XK_F3 },
+            { Win32.VK_F4, RfbProtocol.XK_F4 },
+            { Win32.VK_F5, RfbProtocol.XK_F5 },
+            { Win32.VK_F6, RfbProtocol.XK_F6 },
+            { Win32.VK_F7, RfbProtocol.XK_F7 },
+            { Win32.VK_F8, RfbProtocol.XK_F8 },
+            { Win32.VK_F9, RfbProtocol.XK_F9 },
+            { Win32.VK_F10, RfbProtocol.XK_F10 },
+            { Win32.VK_F11, RfbProtocol.XK_F11 },
+            { Win32.VK_F12, RfbProtocol.XK_F12 },
+            { Win32.VK_APPS, RfbProtocol.XK_Menu },
+        };
+
+        public static Int32 TranslateVirtualKey(Int32 virtualKey, KeyboardHook.ModifierKeys modifierKeys)
+        {
+            if (KeyTranslationTable.ContainsKey(virtualKey))
+                return KeyTranslationTable[virtualKey];
+
+            // Windows sends the uppercase letter when the user presses a hotkey
+            // like Ctrl-A. ToAscii takes into effect the keyboard layout and
+            // state of the modifier keys. This will give us the lowercase letter
+            // unless the user is also pressing Shift.
+            var keyboardState = new byte[256];
+            if (!Win32.GetKeyboardState(keyboardState))
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+
+            keyboardState[Win32.VK_CONTROL] = 0;
+            keyboardState[Win32.VK_LCONTROL] = 0;
+            keyboardState[Win32.VK_RCONTROL] = 0;
+            keyboardState[Win32.VK_MENU] = 0;
+            keyboardState[Win32.VK_LMENU] = 0;
+            keyboardState[Win32.VK_RMENU] = 0;
+            keyboardState[Win32.VK_LWIN] = 0;
+            keyboardState[Win32.VK_RWIN] = 0;
+
+            var charResult = new byte[2];
+            var charCount = Win32.ToAscii(virtualKey, Win32.MapVirtualKey(virtualKey, 0), keyboardState, charResult, 0);
+
+            // TODO: This could probably be handled better. For now, we'll just return the last character.
+            if (charCount > 0) return Convert.ToInt32(charResult[charCount - 1]);
+
+            return virtualKey;
+        }
+
+        public static Boolean IsModifierKey(Int32 keyCode)
+        {
+            switch (keyCode)
+            {
+                case Win32.VK_SHIFT:
+                case Win32.VK_LSHIFT:
+                case Win32.VK_RSHIFT:
+                case Win32.VK_CONTROL:
+                case Win32.VK_LCONTROL:
+                case Win32.VK_RCONTROL:
+                case Win32.VK_MENU:
+                case Win32.VK_LMENU:
+                case Win32.VK_RMENU:
+                case Win32.VK_LWIN:
+                case Win32.VK_RWIN:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+	    protected KeyboardHook.ModifierKeys PreviousModifierKeyState;
+
+        protected void SyncModifierKeyState(KeyboardHook.ModifierKeys modifierKeys)
+        {
+            if ((PreviousModifierKeyState & KeyboardHook.ModifierKeys.LeftShift) !=
+                (modifierKeys & KeyboardHook.ModifierKeys.LeftShift))
+                vnc.WriteKeyboardEvent(RfbProtocol.XK_Shift_L, (modifierKeys & KeyboardHook.ModifierKeys.LeftShift) != 0);
+            if ((PreviousModifierKeyState & KeyboardHook.ModifierKeys.RightShift) !=
+                (modifierKeys & KeyboardHook.ModifierKeys.RightShift))
+                vnc.WriteKeyboardEvent(RfbProtocol.XK_Shift_R, (modifierKeys & KeyboardHook.ModifierKeys.RightShift) != 0);
+
+            if ((PreviousModifierKeyState & KeyboardHook.ModifierKeys.LeftControl) !=
+                (modifierKeys & KeyboardHook.ModifierKeys.LeftControl))
+                vnc.WriteKeyboardEvent(RfbProtocol.XK_Control_L, (modifierKeys & KeyboardHook.ModifierKeys.LeftControl) != 0);
+            if ((PreviousModifierKeyState & KeyboardHook.ModifierKeys.RightControl) !=
+                (modifierKeys & KeyboardHook.ModifierKeys.RightControl))
+                vnc.WriteKeyboardEvent(RfbProtocol.XK_Control_R, (modifierKeys & KeyboardHook.ModifierKeys.RightControl) != 0);
+
+            if ((PreviousModifierKeyState & KeyboardHook.ModifierKeys.LeftAlt) !=
+                (modifierKeys & KeyboardHook.ModifierKeys.LeftAlt))
+                vnc.WriteKeyboardEvent(RfbProtocol.XK_Alt_L, (modifierKeys & KeyboardHook.ModifierKeys.LeftAlt) != 0);
+            if ((PreviousModifierKeyState & KeyboardHook.ModifierKeys.RightAlt) !=
+                (modifierKeys & KeyboardHook.ModifierKeys.RightAlt))
+                vnc.WriteKeyboardEvent(RfbProtocol.XK_Alt_R, (modifierKeys & KeyboardHook.ModifierKeys.RightAlt) != 0);
+
+            if ((PreviousModifierKeyState & KeyboardHook.ModifierKeys.LeftWin) !=
+                (modifierKeys & KeyboardHook.ModifierKeys.LeftWin))
+                vnc.WriteKeyboardEvent(RfbProtocol.XK_Super_L, (modifierKeys & KeyboardHook.ModifierKeys.LeftWin) != 0);
+            if ((PreviousModifierKeyState & KeyboardHook.ModifierKeys.RightWin) !=
+                (modifierKeys & KeyboardHook.ModifierKeys.RightWin))
+                vnc.WriteKeyboardEvent(RfbProtocol.XK_Super_R, (modifierKeys & KeyboardHook.ModifierKeys.RightWin) != 0);
+
+            PreviousModifierKeyState = modifierKeys;
+        }
+
+        protected bool HandleKeyboardEvent(Int32 msg, Int32 virtualKey, KeyboardHook.ModifierKeys modifierKeys)
+        {
+            if (DesignMode || !IsConnected)
+                return false;
+
+            if (modifierKeys != PreviousModifierKeyState)
+                SyncModifierKeyState(modifierKeys);
+
+            if (IsModifierKey(virtualKey)) return true;
+
+            Boolean pressed;
+            switch (msg)
+            {
+                case Win32.WM_KEYDOWN:
+                case Win32.WM_SYSKEYDOWN:
+                    pressed = true;
+                    break;
+                case Win32.WM_KEYUP:
+                case Win32.WM_SYSKEYUP:
+                    pressed = false;
+                    break;
+                default:
+                    return false;
+            }
+
+            vnc.WriteKeyboardEvent(Convert.ToUInt32(TranslateVirtualKey(virtualKey, modifierKeys)), pressed);
+
+            return true;
         }
 
 		/// <summary>

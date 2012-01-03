@@ -19,10 +19,12 @@ using System;
 using System.IO;
 using System.Net;
 using System.Drawing;
+using System.Text;
 using System.Threading;
 using System.Diagnostics;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using ComponentAce.Compression.Libs.zlib;
 
 namespace VncSharp
 {
@@ -30,8 +32,11 @@ namespace VncSharp
 	/// Contains methods and properties to handle all aspects of the RFB Protocol versions 3.3 - 3.8.
 	/// </summary>
 	public class RfbProtocol
-	{
-		// Encoding Constants
+    {
+        #region Constants
+        // ReSharper disable InconsistentNaming
+
+        // Encoding Constants
 		public const int RAW_ENCODING 					= 0;
 		public const int COPYRECT_ENCODING 				= 1;
 		public const int RRE_ENCODING 					= 2;
@@ -53,7 +58,60 @@ namespace VncSharp
 		protected const byte POINTER_EVENT 				= 5;
 		protected const byte CLIENT_CUT_TEXT 			= 6;
 
-		protected int verMajor;	// Major version of Protocol--probably 3
+        // Keyboard constants
+        public const int XK_BackSpace = 0xFF08;
+        public const int XK_Tab = 0xFF09;
+        public const int XK_Clear = 0xFF0B;
+        public const int XK_Return = 0xFF0D;
+        public const int XK_Pause = 0xFF13;
+        public const int XK_Sys_Req = 0xFF15;
+        public const int XK_Escape = 0xFF1B;
+        public const int XK_Home = 0xFF50;
+        public const int XK_Left = 0xFF51;
+        public const int XK_Up = 0xFF52;
+        public const int XK_Right = 0xFF53;
+        public const int XK_Down = 0xFF54;
+        public const int XK_Prior = 0xFF55;
+        public const int XK_Next = 0xFF56;
+        public const int XK_End = 0xFF57;
+        public const int XK_Select = 0xFF60;
+        public const int XK_Print = 0xFF61;
+        public const int XK_Execute = 0xFF62;
+        public const int XK_Insert = 0xFF63;
+        public const int XK_Menu = 0xFF67;
+        public const int XK_Cancel = 0xFF69;
+        public const int XK_Help = 0xFF6A;
+        public const int XK_Break = 0xFF6B;
+        public const int XK_F1 = 0xFFBE;
+        public const int XK_F2 = 0xFFBF;
+        public const int XK_F3 = 0xFFC0;
+        public const int XK_F4 = 0xFFC1;
+        public const int XK_F5 = 0xFFC2;
+        public const int XK_F6 = 0xFFC3;
+        public const int XK_F7 = 0xFFC4;
+        public const int XK_F8 = 0xFFC5;
+        public const int XK_F9 = 0xFFC6;
+        public const int XK_F10 = 0xFFC7;
+        public const int XK_F11 = 0xFFC8;
+        public const int XK_F12 = 0xFFC9;
+        public const int XK_Shift_L = 0xFFE1;
+        public const int XK_Shift_R = 0xFFE2;
+        public const int XK_Control_L = 0xFFE3;
+        public const int XK_Control_R = 0xFFE4;
+        public const int XK_Meta_L = 0xFFE7;
+        public const int XK_Meta_R = 0xFFE8;
+        public const int XK_Alt_L = 0xFFE9;
+        public const int XK_Alt_R = 0xFFEA;
+        public const int XK_Super_L = 0xFFEB;
+        public const int XK_Super_R = 0xFFEC;
+        public const int XK_Hyper_L = 0xFFED;
+        public const int XK_Hyper_R = 0xFFEE;
+        public const int XK_Delete = 0xFFFF;
+
+        // ReSharper restore InconsistentNaming
+        #endregion
+
+        protected int verMajor;	// Major version of Protocol--probably 3
 		protected int verMinor; // Minor version of Protocol--probably 3, 7, or 8
 
 		protected TcpClient tcp;		// Network object used to communicate with host
@@ -196,9 +254,9 @@ namespace VncSharp
 		{
 			// We will use which ever version the server understands, be it 3.3, 3.7, or 3.8.
 			Debug.Assert(verMinor == 3 || verMinor == 7 || verMinor == 8, "Wrong Protocol Version!",
-						 string.Format("Protocol Version should be 3.3, 3.7, or 3.8 but is {0}.{1}", verMajor.ToString(), verMinor.ToString()));
+						 String.Format("Protocol Version should be 3.3, 3.7, or 3.8 but is {0}.{1}", verMajor.ToString(), verMinor.ToString()));
 
-			writer.Write(GetBytes(string.Format("RFB 003.00{0}\n", verMinor.ToString())));
+			writer.Write(GetBytes(String.Format("RFB 003.00{0}\n", verMinor.ToString())));
 			writer.Flush();
 		}
 
@@ -450,9 +508,9 @@ namespace VncSharp
 
             for (int i = 0; i < nbColors; i++, firstColor++)
             {
-                mapEntries[firstColor, 0] = (byte)(ReadUInt16() * byte.MaxValue / ushort.MaxValue);    // R
-                mapEntries[firstColor, 1] = (byte)(ReadUInt16() * byte.MaxValue / ushort.MaxValue);    // G
-                mapEntries[firstColor, 2] = (byte)(ReadUInt16() * byte.MaxValue / ushort.MaxValue);    // B
+                mapEntries[firstColor, 0] = (byte)(ReadUInt16() * Byte.MaxValue / UInt16.MaxValue);    // R
+                mapEntries[firstColor, 1] = (byte)(ReadUInt16() * Byte.MaxValue / UInt16.MaxValue);    // G
+                mapEntries[firstColor, 2] = (byte)(ReadUInt16() * Byte.MaxValue / UInt16.MaxValue);    // B
             }
         } 
 
@@ -560,7 +618,7 @@ namespace VncSharp
 		/// <returns>Returns a Byte Array containing the text as bytes.</returns>
 		protected static byte[] GetBytes(string text)
 		{
-			return System.Text.Encoding.ASCII.GetBytes(text);
+			return Encoding.ASCII.GetBytes(text);
 		}
 		
 		/// <summary>
@@ -570,7 +628,7 @@ namespace VncSharp
 		/// <returns>Returns a String representation of bytes.</returns>
 		protected static string GetString(byte[] bytes)
 		{
-			return System.Text.ASCIIEncoding.UTF8.GetString(bytes, 0, bytes.Length);
+			return Encoding.UTF8.GetString(bytes, 0, bytes.Length);
 		}
 
 		/// <summary>
@@ -580,11 +638,11 @@ namespace VncSharp
 		{
 			private byte[] buff = new byte[4];
 
-			public BigEndianBinaryReader(System.IO.Stream input) : base(input)
+			public BigEndianBinaryReader(Stream input) : base(input)
 			{
 			}
 			
-			public BigEndianBinaryReader(System.IO.Stream input, System.Text.Encoding encoding) : base(input, encoding)
+			public BigEndianBinaryReader(Stream input, Encoding encoding) : base(input, encoding)
 			{
 			}
 
@@ -637,11 +695,11 @@ namespace VncSharp
 		/// </summary>
 		protected sealed class BigEndianBinaryWriter : BinaryWriter
 		{
-			public BigEndianBinaryWriter(System.IO.Stream input) : base(input)
+			public BigEndianBinaryWriter(Stream input) : base(input)
 			{
 			}
 
-			public BigEndianBinaryWriter(System.IO.Stream input, System.Text.Encoding encoding) : base(input, encoding)
+			public BigEndianBinaryWriter(Stream input, Encoding encoding) : base(input, encoding)
 			{
 			}
 			
@@ -690,13 +748,13 @@ namespace VncSharp
 		public sealed class ZRLECompressedReader : BinaryReader
 		{
 			MemoryStream zlibMemoryStream;
-			ComponentAce.Compression.Libs.zlib.ZOutputStream zlibDecompressedStream;
+			ZOutputStream zlibDecompressedStream;
 			BinaryReader uncompressedReader;
 
 			public ZRLECompressedReader(Stream uncompressedStream) : base(uncompressedStream)
 			{
 				zlibMemoryStream = new MemoryStream();
-				zlibDecompressedStream = new ComponentAce.Compression.Libs.zlib.ZOutputStream(zlibMemoryStream);
+				zlibDecompressedStream = new ZOutputStream(zlibMemoryStream);
 				uncompressedReader = new BinaryReader(zlibMemoryStream);
 			}
 

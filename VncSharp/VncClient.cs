@@ -488,8 +488,9 @@ namespace VncSharp
 		// TODO: This needs to be pushed into the protocol rather than expecting keysym from the caller.
 		public virtual void WriteKeyboardEvent(uint keysym, bool pressed)
 		{
+            Debug.Write (String.Format("WriteKeyboardEvent(0x{0:X8}, {1})\n", keysym, pressed?"true":"false"));
 			try {
-				inputPolicy.WriteKeyboardEvent(keysym, pressed);
+                inputPolicy.WriteKeyboardEvent(keysym, pressed);
 			} catch {
 				OnConnectionLost();
 			}
