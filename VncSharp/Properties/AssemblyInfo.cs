@@ -6,9 +6,8 @@ using System.Runtime.CompilerServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("VncSharpNG")]
-[assembly: AssemblyCopyright("Copyright © 2004-2010 David Humphrey, Riley McArdle")]
+[assembly: AssemblyCopyright("Copyright © 2004-2012 David Humphrey, Riley McArdle")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
-[assembly: AssemblyVersion("1.1.1")]
-[assembly: AssemblyFileVersionAttribute("1.1.1")]
+[assembly: AssemblyVersion("1.2.*")]
