@@ -1,9 +1,15 @@
 Change Log
 ----------
 
+* Version 1.2
+
+- Rewrote keyboard handling code
+
 * Version 1.1
 
 - Added Scaled and ViewOnly get/set properties to RemoteDesktop control
+- Fixed exception in RemoteDesktop control if the mouse is clicked outside of the remote screen area
+- Corrected check for modifier keys
 
 * Version 1.0
 
