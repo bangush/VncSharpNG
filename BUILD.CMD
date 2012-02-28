@@ -12,8 +12,6 @@ set SIGCHECK="%ProgramFiles(x86)%\Sigcheck\sigcheck.exe"
 
 call %VCVARSALL% x86
 
-goto :test
-
 rmdir /s /q "%~dp0\VncSharp\bin" > nul 2>&1
 rmdir /s /q "%~dp0\VncSharp\obj" > nul 2>&1
 
@@ -24,8 +22,6 @@ echo Signing binaries...
 %SIGNCMD% "%~dp0\VncSharp\bin\Release\VncSharpNG.dll"
 
 mkdir "%~dp0\Release" > nul 2>&1
-
-:test
 
 echo Getting product version...
 set SIGCHECK=!SIGCHECK:"=^"!
