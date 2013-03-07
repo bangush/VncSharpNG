@@ -20,6 +20,7 @@ using System.IO;
 using System.Net;
 using System.Drawing;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Diagnostics;
 using System.Net.Sockets;
@@ -188,63 +189,48 @@ namespace VncSharp
 				Debug.Fail(ex.Message);
 			}
 		}
-		
-		/// <summary>
-		/// Reads VNC Host Protocol Version message (see RFB Doc v. 3.8 section 6.1.1)
-		/// </summary>
-		/// <exception cref="NotSupportedException">Thrown if the version of the host is not known or supported.</exception>
-		public void ReadProtocolVersion()
-		{
-			byte[] b = reader.ReadBytes(12);
 
-			// As of the time of writing, the only supported versions are 3.3, 3.7, and 3.8.
-			if (	b[0]  == 0x52 &&					// R
-					b[1]  == 0x46 &&					// F
-					b[2]  == 0x42 &&					// B
-					b[3]  == 0x20 &&					// (space)
-					b[4]  == 0x30 &&					// 0
-					b[5]  == 0x30 &&					// 0
-					b[6]  == 0x33 &&					// 3
-					b[7]  == 0x2e &&					// .
-                   (b[8]  == 0x30 ||                    // 0
-                    b[8]  == 0x38) &&					// BUG FIX: Apple reports 8 
-                   (b[9] == 0x30 ||                     // 0
-                    b[9] == 0x38) &&					// BUG FIX: Apple reports 8 
-				   (b[10] == 0x33 ||					// 3, 7, OR 8 are all valid and possible
-				    b[10] == 0x36 ||					// BUG FIX: UltraVNC reports protocol version 3.6!
-				    b[10] == 0x37 ||
-                    b[10] == 0x38 ||
-                    b[10] == 0x39) &&                   // BUG FIX: Apple reports 9					
-				    b[11] == 0x0a)						// \n
-			{
-				// Since we only currently support the 3.x protocols, this can be assumed here.
-				// If and when 4.x comes out, this will need to be fixed--however, the entire 
-				// protocol will need to be updated then anyway :)
-				verMajor = 3;
+	    /// <summary>
+	    /// Reads VNC Host Protocol Version message (see RFB Doc v. 3.8 section 6.1.1)
+	    /// </summary>
+        /// <exception cref="InvalidDataException">Thrown if the ProtocolVersion message is not in the correct format.</exception>
+        /// <exception cref="NotSupportedException">Thrown if the version of the server is not known or supported.</exception>
+	    public void ReadProtocolVersion()
+	    {
+            var versionMessage = Encoding.ASCII.GetString(reader.ReadBytes(12));
 
-				// Figure out which version of the protocol this is:
-				switch (b[10]) {
-					case 0x33: 
-					case 0x36:	// BUG FIX: pass 3.3 for 3.6 to allow UltraVNC to work, thanks to Steve Bostedor.
-						verMinor = 3;
-						break;
-					case 0x37:
-						verMinor = 7;
-						break;
-					case 0x38:
-                        verMinor = 8;
-                        break;
-                    case 0x39:  // BUG FIX: Apple reports 3.889
-                        // According to the RealVNC mailing list, Apple is really using 3.3 
-                        // (see http://www.mail-archive.com/vnc-list@realvnc.com/msg23615.html).  I've tested with
-                        // both 3.3 and 3.8, and they both seem to work (I obviously haven't hit the issues others have).
-                        // Because 3.8 seems to work, I'm leaving that, but it might be necessary to use 3.3 in future.
-                        verMinor = 8;
-						break;
-				}
-			} else {
-				throw new NotSupportedException("Only versions 3.3, 3.7, and 3.8 of the RFB Protocol are supported.");
-			}
+            var versionMatch = Regex.Match(versionMessage, @"RFB (\d{3}).(\d{3})\n");
+	        if (!versionMatch.Success)
+	        {
+	            throw new InvalidDataException("The ProtocolVersion message received from the server is not in the correct format.");
+	        }
+
+	        var majorVersion = Convert.ToInt32(versionMatch.Groups[1].Value);
+            var minorVersion = Convert.ToInt32(versionMatch.Groups[2].Value);
+            var protocolVersion = new Version(majorVersion, minorVersion);
+
+            // As of the time of writing, the only supported versions are 3.3, 3.7, and 3.8.
+            if (!(protocolVersion.Major == 3 && 
+                 (protocolVersion.Minor == 3 ||
+                  protocolVersion.Minor == 6 ||     // UltraVNC reports protocol version 3.6
+                  protocolVersion.Minor == 7 ||
+                  protocolVersion.Minor == 8 ||
+                  protocolVersion.Minor == 889)))   // Apple reports protocol version 3.889
+	        {
+                throw new NotSupportedException(string.Format("The server is using an unsupported version of the RFB protocol. The server is using version {0} but only versions 3.3, 3.7, and 3.8 are supported.", protocolVersion));
+            }
+
+            // BUG FIX: pass 3.3 for 3.6 to allow UltraVNC to work, thanks to Steve Bostedor.
+            if (minorVersion == 6) minorVersion = 3;
+
+            // According to the RealVNC mailing list, Apple is really using 3.3 
+            // (see http://www.mail-archive.com/vnc-list@realvnc.com/msg23615.html).  I've tested with
+            // both 3.3 and 3.8, and they both seem to work (I obviously haven't hit the issues others have).
+            // Because 3.8 seems to work, I'm leaving that, but it might be necessary to use 3.3 in future.
+            if (minorVersion == 889) minorVersion = 8;
+
+            verMajor = majorVersion;
+            verMinor = minorVersion;
 		}
 
 		/// <summary>
