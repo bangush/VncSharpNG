@@ -207,30 +207,18 @@ namespace VncSharp
 
 	        var majorVersion = Convert.ToInt32(versionMatch.Groups[1].Value);
             var minorVersion = Convert.ToInt32(versionMatch.Groups[2].Value);
-            var protocolVersion = new Version(majorVersion, minorVersion);
 
-            // As of the time of writing, the only supported versions are 3.3, 3.7, and 3.8.
-            if (!(protocolVersion.Major == 3 && 
-                 (protocolVersion.Minor == 3 ||
-                  protocolVersion.Minor == 6 ||     // UltraVNC reports protocol version 3.6
-                  protocolVersion.Minor == 7 ||
-                  protocolVersion.Minor == 8 ||
-                  protocolVersion.Minor == 889)))   // Apple reports protocol version 3.889
-	        {
-                throw new NotSupportedException(string.Format("The server is using an unsupported version of the RFB protocol. The server is using version {0} but only versions 3.3, 3.7, and 3.8 are supported.", protocolVersion));
+            if (majorVersion != 3)
+            {
+                throw new NotSupportedException(string.Format("The server is using an unsupported version of the RFB protocol. The server is using version {0}.{1} but only version 3.x is supported.", majorVersion, minorVersion));
             }
 
-            // BUG FIX: pass 3.3 for 3.6 to allow UltraVNC to work, thanks to Steve Bostedor.
-            if (minorVersion == 6) minorVersion = 3;
-
-            // According to the RealVNC mailing list, Apple is really using 3.3 
-            // (see http://www.mail-archive.com/vnc-list@realvnc.com/msg23615.html).  I've tested with
-            // both 3.3 and 3.8, and they both seem to work (I obviously haven't hit the issues others have).
-            // Because 3.8 seems to work, I'm leaving that, but it might be necessary to use 3.3 in future.
-            if (minorVersion == 889) minorVersion = 8;
-
             verMajor = majorVersion;
-            verMinor = minorVersion;
+
+            // As of the time of writing, the only supported versions are 3.3, 3.7, and 3.8.
+            if (minorVersion < 7) verMinor = 3;
+	        if (minorVersion >= 7 && minorVersion < 8) verMinor = 7;
+	        if (minorVersion >= 8) verMinor = 8;
 		}
 
 		/// <summary>
