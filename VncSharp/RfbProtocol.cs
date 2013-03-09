@@ -117,8 +117,8 @@ namespace VncSharp
 
 		protected TcpClient tcp;		// Network object used to communicate with host
 		protected NetworkStream stream;	// Stream object used to send/receive data
-		protected BinaryReader reader;	// Integral rather than Byte values are typically
-		protected BinaryWriter writer;	// sent and received, so these handle this.
+		protected DebugBinaryReader reader;	// Integral rather than Byte values are typically
+        protected DebugBinaryWriter writer;	// sent and received, so these handle this.
 		protected ZRLECompressedReader zrleReader;
 
 		public RfbProtocol()
@@ -157,6 +157,7 @@ namespace VncSharp
 		/// <param name="port">The Port number on which to connect.  Usually this will be 5900, except in the case that the VNC Host is running on a different Display, in which case the Display number should be added to 5900 to determine the correct port.</param>
 		public void Connect(string host, int port)
 		{
+            Debug.Print("RfbProtocol.Connect({0}, {1})", host, port);
 			if (host == null) throw new ArgumentNullException("host");
 
 			// Try to connect, passing any exceptions up to the caller, and if successful, 
@@ -180,7 +181,9 @@ namespace VncSharp
 		/// </summary>
 		public void Close()
 		{
-			try {
+            Debug.Print("RfbProtocol.Close()");
+            try
+            {
 				writer.Close();
 				reader.Close();
 				stream.Close();
@@ -197,6 +200,7 @@ namespace VncSharp
         /// <exception cref="NotSupportedException">Thrown if the version of the server is not known or supported.</exception>
 	    public void ReadProtocolVersion()
 	    {
+            Debug.Print("ReadProtocolVersion()");
             var versionMessage = Encoding.ASCII.GetString(reader.ReadBytes(12));
 
             var versionMatch = Regex.Match(versionMessage, @"RFB (\d{3}).(\d{3})\n");
@@ -226,7 +230,8 @@ namespace VncSharp
 		/// </summary>
 		public void WriteProtocolVersion()
 		{
-			// We will use which ever version the server understands, be it 3.3, 3.7, or 3.8.
+            Debug.Print("WriteProtocolVersion()");
+            // We will use which ever version the server understands, be it 3.3, 3.7, or 3.8.
 			Debug.Assert(verMinor == 3 || verMinor == 7 || verMinor == 8, "Wrong Protocol Version!",
 						 String.Format("Protocol Version should be 3.3, 3.7, or 3.8 but is {0}.{1}", verMajor.ToString(), verMinor.ToString()));
 
@@ -240,7 +245,8 @@ namespace VncSharp
 		/// <returns>An array of bytes containing the supported Security Type(s) of the server.</returns>
 		public byte[] ReadSecurityTypes()
 		{
-			// Read and return the types of security supported by the server (see protocol doc 6.1.2)
+            Debug.Print("ReadSecurityTypes()");
+            // Read and return the types of security supported by the server (see protocol doc 6.1.2)
 			byte[] types = null;
 			
 			// Protocol Version 3.7 onward supports multiple security types, while 3.3 only 1
@@ -263,7 +269,8 @@ namespace VncSharp
 		/// <returns>Returns a string containing the reason for the server rejecting the connection.</returns>
 		public string ReadSecurityFailureReason()
 		{
-			int length = (int) reader.ReadUInt32();
+            Debug.Print("ReadSecurityFailureReason()");
+            int length = (int)reader.ReadUInt32();
 			return GetString(reader.ReadBytes(length));
 		}
 
@@ -273,7 +280,8 @@ namespace VncSharp
 		/// <param name="type">The type of Authentication to be used, 1 (None) or 2 (VNC Authentication).</param>
 		public void WriteSecurityType(byte type)
 		{
-			Debug.Assert(type >= 1, "Wrong Security Type", "The Security Type must be one that requires authentication.");
+            Debug.Print("WriteSecurityType({0})", type);
+            Debug.Assert(type >= 1, "Wrong Security Type", "The Security Type must be one that requires authentication.");
 			
 			// Only bother writing this byte if the version of the server is 3.7
 			if (verMinor >= 7) {
@@ -289,7 +297,8 @@ namespace VncSharp
 		/// <returns>Returns the 16 byte Challenge sent by the server.</returns>
 		public byte[] ReadSecurityChallenge()
 		{
-			return reader.ReadBytes(16);
+            Debug.Print("ReadSecurityChallenge()");
+            return reader.ReadBytes(16);
 		}
 
 		/// <summary>
@@ -298,7 +307,8 @@ namespace VncSharp
 		/// <param name="response">The DES password encrypted challege sent by the server.</param>
 		public void WriteSecurityResponse(byte[] response)
 		{
-			writer.Write(response, 0, response.Length);
+            Debug.Print("WriteSecurityResponse({0})", response);
+            writer.Write(response, 0, response.Length);
 			writer.Flush();
 		}
 
@@ -309,7 +319,8 @@ namespace VncSharp
 		/// <returns>An integer indicating the status of authentication: 0 = OK; 1 = Failed; 2 = Too Many (deprecated).</returns>
 		public uint ReadSecurityResult()
 		{
-			return reader.ReadUInt32();
+            Debug.Print("ReadSecurityResult()");
+            return reader.ReadUInt32();
 		}
 
 		/// <summary>
@@ -318,7 +329,8 @@ namespace VncSharp
 		/// <param name="shared">True if the server should allow other clients to connect, otherwise False.</param>
 		public void WriteClientInitialisation(bool shared)
 		{
-			// Non-zero if TRUE, zero if FALSE
+            Debug.Print("WriteClientInitialisation({0})", shared);
+            // Non-zero if TRUE, zero if FALSE
 			writer.Write((byte)(shared ? 1 : 0));
 			writer.Flush();
 		}
@@ -329,7 +341,8 @@ namespace VncSharp
 		/// <returns>Returns a Framebuffer object representing the geometry and properties of the remote host.</returns>
 		public Framebuffer ReadServerInit()
 		{
-			int w = (int) reader.ReadUInt16();
+            Debug.Print("ReadServerInit()");
+            int w = (int)reader.ReadUInt16();
 			int h = (int) reader.ReadUInt16();
 			Framebuffer buffer = Framebuffer.FromPixelFormat(reader.ReadBytes(16), w, h);
 			int length = (int) reader.ReadUInt32();
@@ -345,7 +358,8 @@ namespace VncSharp
 		/// <param name="buffer">A Framebuffer telling the server how to encode pixel data. Typically this will be the same one sent by the server during initialization.</param>
 		public void WriteSetPixelFormat(Framebuffer buffer)
 		{
-			writer.Write(SET_PIXEL_FORMAT);
+            Debug.Print("WriteSetPixelFormat(buffer)");
+            writer.Write(SET_PIXEL_FORMAT);
 			WritePadding(3);
 			writer.Write(buffer.ToPixelFormat());		// 16-byte Pixel Format
 			writer.Flush();
@@ -357,7 +371,8 @@ namespace VncSharp
 		/// <param name="encodings">An array of integers indicating the encoding types supported.  The order indicates preference, where the first item is the first preferred.</param>
 		public void WriteSetEncodings(uint[] encodings)
 		{
-			writer.Write(SET_ENCODINGS);
+            Debug.Print("WriteSetEncodings({0})", HexConverter.ToHex(encodings));
+            writer.Write(SET_ENCODINGS);
 			WritePadding(1);
 			writer.Write((ushort)encodings.Length);
 			
@@ -378,7 +393,8 @@ namespace VncSharp
 		/// <param name="incremental">Indicates whether only changes to the client's data should be sent or the entire desktop.</param>
 		public void WriteFramebufferUpdateRequest(ushort x, ushort y, ushort width, ushort height, bool incremental)
 		{
-			writer.Write(FRAMEBUFFER_UPDATE_REQUEST);
+            Debug.Print("WriteFramebufferUpdateRequest({0}, {1}, {2}, {3}, {4})", x, y, width, height, incremental);
+            writer.Write(FRAMEBUFFER_UPDATE_REQUEST);
 			writer.Write((byte)(incremental ? 1 : 0));
 			writer.Write(x);
 			writer.Write(y);
@@ -394,7 +410,8 @@ namespace VncSharp
 		/// <param name="pressed"></param>
 		public void WriteKeyEvent(uint keysym, bool pressed)
 		{
-			writer.Write(KEY_EVENT);
+            Debug.Print("WriteKeyEvent({0}, {1})", keysym, pressed);
+            writer.Write(KEY_EVENT);
 			writer.Write( (byte) (pressed ? 1 : 0));
 			WritePadding(2);
 			writer.Write(keysym);
@@ -408,7 +425,8 @@ namespace VncSharp
 		/// <param name="point">The location of the mouse cursor.</param>
 		public void WritePointerEvent(byte buttonMask, Point point)
 		{
-			writer.Write(POINTER_EVENT);
+            Debug.Print("WritePointerEvent({0}, {1})", buttonMask, point);
+            writer.Write(POINTER_EVENT);
 			writer.Write(buttonMask);
 			writer.Write( (ushort) point.X);
 			writer.Write( (ushort) point.Y);
@@ -421,7 +439,8 @@ namespace VncSharp
 		/// <param name="text">The text to be sent to the server.</param></param>
 		public void WriteClientCutText(string text)
 		{
-			writer.Write(CLIENT_CUT_TEXT);
+            Debug.Print("WriteClientCutText({0})", text);
+            writer.Write(CLIENT_CUT_TEXT);
 			WritePadding(3);
 			writer.Write( (uint) text.Length);
 			writer.Write(GetBytes(text));
@@ -434,7 +453,8 @@ namespace VncSharp
 		/// <returns>Returns the message type as an integer.</returns>
 		public int ReadServerMessageType()
 		{
-			return (int) reader.ReadByte();
+            Debug.Print("ReadServerMessageType()");
+            return (int)reader.ReadByte();
 		}
 
 		/// <summary>
@@ -443,7 +463,8 @@ namespace VncSharp
 		/// <returns>Returns the number of rectangles that follow.</returns>
 		public int ReadFramebufferUpdate()
 		{
-			ReadPadding(1);
+            Debug.Print("ReadFramebufferUpdate()");
+            ReadPadding(1);
 			return (int) reader.ReadUInt16();
 		}
 
@@ -454,7 +475,8 @@ namespace VncSharp
 		/// <param name="encoding">The encoding used for this rectangle.</param>
 		public void ReadFramebufferUpdateRectHeader(out Rectangle rectangle, out int encoding)
 		{
-			rectangle = new Rectangle();
+            Debug.Print("ReadFramebufferUpdateRectHeader(rectangle, encoding)");
+            rectangle = new Rectangle();
 			rectangle.X = (int) reader.ReadUInt16();
 			rectangle.Y = (int) reader.ReadUInt16();
 			rectangle.Width = (int) reader.ReadUInt16();
@@ -476,6 +498,7 @@ namespace VncSharp
         /// </summary>
         public void ReadColourMapEntry()
         {
+            Debug.Print("ReadColourMapEntry()");
             ReadPadding(1);
             ushort firstColor = ReadUInt16();
             ushort nbColors = ReadUInt16();
@@ -494,7 +517,8 @@ namespace VncSharp
 		/// <returns>Returns the text in the server's Cut Buffer.</returns>
 		public string ReadServerCutText()
 		{
-			ReadPadding(3);
+            Debug.Print("ReadServerCutText()");
+            ReadPadding(3);
 			int length = (int) reader.ReadUInt32();
 			return GetString(reader.ReadBytes(length));
 		}
@@ -608,7 +632,7 @@ namespace VncSharp
 		/// <summary>
 		/// BigEndianBinaryReader is a wrapper class used to read .NET integral types from a Big-Endian stream.  It inherits from BinaryReader and adds Big- to Little-Endian conversion.
 		/// </summary>
-		protected sealed class BigEndianBinaryReader : BinaryReader
+        protected sealed class BigEndianBinaryReader : DebugBinaryReader
 		{
 			private byte[] buff = new byte[4];
 
@@ -667,7 +691,7 @@ namespace VncSharp
 		/// <summary>
 		/// BigEndianBinaryWriter is a wrapper class used to write .NET integral types in Big-Endian order to a stream.  It inherits from BinaryWriter and adds Little- to Big-Endian conversion.
 		/// </summary>
-		protected sealed class BigEndianBinaryWriter : BinaryWriter
+        protected sealed class BigEndianBinaryWriter : DebugBinaryWriter
 		{
 			public BigEndianBinaryWriter(Stream input) : base(input)
 			{
@@ -719,7 +743,7 @@ namespace VncSharp
         /// <summary>
         /// ZRLE compressed binary reader, used by ZrleRectangle.
         /// </summary>
-		public sealed class ZRLECompressedReader : BinaryReader
+        public sealed class ZRLECompressedReader : BinaryReader
 		{
 			MemoryStream zlibMemoryStream;
 			ZOutputStream zlibDecompressedStream;

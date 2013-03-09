@@ -51,6 +51,9 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DebugBinaryReader.cs" />
+    <Compile Include="DebugBinaryWriter.cs" />
+    <Compile Include="HexConverter.cs" />
     <Compile Include="KeyboardHook.cs" />
     <Compile Include="VncDesignModeDesktopPolicy.cs" />
     <Compile Include="VncDesktopTransformPolicy.cs" />
