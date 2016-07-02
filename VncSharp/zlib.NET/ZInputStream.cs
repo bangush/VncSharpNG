@@ -41,7 +41,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * Jean-loup Gailly(jloup@gzip.org) and Mark Adler(madler@alumni.caltech.edu)
 * and contributors of zlib.
 */
-
+using System;
 namespace ComponentAce.Compression.Libs.zlib
 {
 	
@@ -52,7 +52,7 @@ namespace ComponentAce.Compression.Libs.zlib
 			flush = zlibConst.Z_NO_FLUSH;
 			buf = new byte[bufsize];
 		}
-		public virtual int FlushMode
+		virtual public int FlushMode
 		{
 			get
 			{
@@ -66,7 +66,7 @@ namespace ComponentAce.Compression.Libs.zlib
 			
 		}
 		/// <summary> Returns the total number of bytes input so far.</summary>
-		public virtual long TotalIn
+		virtual public long TotalIn
 		{
 			get
 			{
@@ -75,7 +75,7 @@ namespace ComponentAce.Compression.Libs.zlib
 			
 		}
 		/// <summary> Returns the total number of bytes output so far.</summary>
-		public virtual long TotalOut
+		virtual public long TotalOut
 		{
 			get
 			{
@@ -170,7 +170,7 @@ namespace ComponentAce.Compression.Libs.zlib
 			if (n < len)
 				len = (int) n;
 			byte[] tmp = new byte[len];
-			return SupportClass.ReadInput(BaseStream, tmp, 0, tmp.Length);
+			return ((long) SupportClass.ReadInput(BaseStream, tmp, 0, tmp.Length));
 		}
 		
 		public override void  Close()

@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 [assembly: AssemblyTitle("VncSharpNG")]
 [assembly: AssemblyDescription(".NET VNC Client Library")]

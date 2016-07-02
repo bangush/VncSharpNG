@@ -607,7 +607,7 @@ namespace ComponentAce.Compression.Libs.zlib
 		internal void  send_bits(int value_Renamed, int length)
 		{
 			int len = length;
-			if (bi_valid > Buf_size - len)
+			if (bi_valid > (int) Buf_size - len)
 			{
 				int val = value_Renamed;
 				//      bi_buf |= (val << bi_valid);
@@ -686,7 +686,7 @@ namespace ComponentAce.Compression.Libs.zlib
 				int dcode;
 				for (dcode = 0; dcode < D_CODES; dcode++)
 				{
-					out_length = (int) (out_length + dyn_dtree[dcode * 2] * (5L + Tree.extra_dbits[dcode]));
+					out_length = (int) (out_length + (int) dyn_dtree[dcode * 2] * (5L + Tree.extra_dbits[dcode]));
 				}
 				out_length = SupportClass.URShift(out_length, 3);
 				if ((matches < (last_lit / 2)) && out_length < in_length / 2)
@@ -877,8 +877,8 @@ namespace ComponentAce.Compression.Libs.zlib
 				if (strstart == 0 || strstart >= max_start)
 				{
 					// strstart == 0 is possible when wraparound on 16-bit machine
-					lookahead = strstart - max_start;
-					strstart = max_start;
+					lookahead = (int) (strstart - max_start);
+					strstart = (int) max_start;
 					
 					flush_block_only(false);
 					if (strm.avail_out == 0)
@@ -1408,7 +1408,7 @@ namespace ComponentAce.Compression.Libs.zlib
 				}
 				while (window[++scan] == window[++match] && window[++scan] == window[++match] && window[++scan] == window[++match] && window[++scan] == window[++match] && window[++scan] == window[++match] && window[++scan] == window[++match] && window[++scan] == window[++match] && window[++scan] == window[++match] && scan < strend);
 				
-				len = MAX_MATCH - (strend - scan);
+				len = MAX_MATCH - (int) (strend - scan);
 				scan = strend - MAX_MATCH;
 				
 				if (len > best_len)
@@ -1464,7 +1464,7 @@ namespace ComponentAce.Compression.Libs.zlib
 				return Z_STREAM_ERROR;
 			}
 			
-			strm.dstate = (this);
+			strm.dstate = (Deflate) this;
 			
 			this.noheader = noheader;
 			w_bits = windowBits;

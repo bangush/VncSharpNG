@@ -147,7 +147,7 @@ namespace ComponentAce.Compression.Libs.zlib
 				p = z.next_in_index; n = z.avail_in; b = bitb; k = bitk;
 			}
 			{
-				q = write; m = q < read ? read - q - 1 : end - q;
+				q = write; m = (int) (q < read?read - q - 1:end - q);
 			}
 			
 			// process input based on current state
@@ -177,7 +177,7 @@ namespace ComponentAce.Compression.Libs.zlib
 							b |= (z.next_in[p++] & 0xff) << k;
 							k += 8;
 						}
-						t = b & 7;
+						t = (int) (b & 7);
 						last = t & 1;
 						
 						switch (SupportClass.URShift(t, 1))
@@ -289,16 +289,16 @@ namespace ComponentAce.Compression.Libs.zlib
 						{
 							if (q == end && read != 0)
 							{
-								q = 0; m = q < read ? read - q - 1 : end - q;
+								q = 0; m = (int) (q < read?read - q - 1:end - q);
 							}
 							if (m == 0)
 							{
 								write = q;
 								r = inflate_flush(z, r);
-								q = write; m = q < read ? read - q - 1 : end - q;
+								q = write; m = (int) (q < read?read - q - 1:end - q);
 								if (q == end && read != 0)
 								{
-									q = 0; m = q < read ? read - q - 1 : end - q;
+									q = 0; m = (int) (q < read?read - q - 1:end - q);
 								}
 								if (m == 0)
 								{
@@ -575,7 +575,7 @@ namespace ComponentAce.Compression.Libs.zlib
 						codes.free(z);
 						
 						p = z.next_in_index; n = z.avail_in; b = bitb; k = bitk;
-						q = write; m = q < read ? read - q - 1 : end - q;
+						q = write; m = (int) (q < read?read - q - 1:end - q);
 						
 						if (last == 0)
 						{
@@ -588,7 +588,7 @@ namespace ComponentAce.Compression.Libs.zlib
 					case DRY: 
 						write = q;
 						r = inflate_flush(z, r);
-						q = write; m = q < read ? read - q - 1 : end - q;
+						q = write; m = (int) (q < read?read - q - 1:end - q);
 						if (read != write)
 						{
 							bitb = b; bitk = k;
@@ -661,7 +661,7 @@ namespace ComponentAce.Compression.Libs.zlib
 			q = read;
 			
 			// compute number of bytes to copy as far as end of window
-			n = (q <= write ? write : end) - q;
+			n = (int) ((q <= write?write:end) - q);
 			if (n > z.avail_out)
 				n = z.avail_out;
 			if (n != 0 && r == Z_BUF_ERROR)

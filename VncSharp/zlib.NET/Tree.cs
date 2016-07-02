@@ -41,7 +41,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * Jean-loup Gailly(jloup@gzip.org) and Mark Adler(madler@alumni.caltech.edu)
 * and contributors of zlib.
 */
-
+using System;
 namespace ComponentAce.Compression.Libs.zlib
 {
 	
@@ -193,7 +193,7 @@ namespace ComponentAce.Compression.Libs.zlib
 						continue;
 					if (tree[m * 2 + 1] != bits)
 					{
-						s.opt_len = (int) (s.opt_len + (bits - (long)tree[m * 2 + 1]) * tree[m * 2]);
+						s.opt_len = (int) (s.opt_len + ((long) bits - (long) tree[m * 2 + 1]) * (long) tree[m * 2]);
 						tree[m * 2 + 1] = (short) bits;
 					}
 					n--;
@@ -274,7 +274,7 @@ namespace ComponentAce.Compression.Libs.zlib
 				
 				// Create a new node father of n and m
 				tree[node * 2] = (short) (tree[n * 2] + tree[m * 2]);
-				s.depth[node] = (byte) (System.Math.Max(s.depth[n], s.depth[m]) + 1);
+				s.depth[node] = (byte) (System.Math.Max((byte) s.depth[n], (byte) s.depth[m]) + 1);
 				tree[n * 2 + 1] = tree[m * 2 + 1] = (short) node;
 				
 				// and insert the new node in the heap
