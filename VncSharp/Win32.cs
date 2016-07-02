@@ -45,6 +45,9 @@ namespace VncSharp
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern int ToAscii(Int32 uVirtKey, Int32 uScanCode, byte[] lpKeyState, byte[] lpwTransKey, Int32 fuState);
 
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        public static extern IntPtr GetAncestor(IntPtr hwnd, UInt32 gaFlags);
+
         #endregion
 
         #region Delegates
@@ -96,6 +99,8 @@ namespace VncSharp
         #endregion
 
         #region Constants
+        // GetAncestor
+        public const int GA_ROOT = 2;
 
         // SetWindowsHookEx
         public const int WH_KEYBOARD_LL = 13;

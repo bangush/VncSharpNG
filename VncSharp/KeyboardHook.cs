@@ -16,7 +16,7 @@ namespace VncSharp
         // ReSharper disable InconsistentNaming
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool PostMessage(IntPtr hWnd, Int32 Msg, IntPtr wParam, HookKeyMsgData lParam);
+        private static extern bool PostMessage(IntPtr hWnd, Int32 Msg, IntPtr wParam, HookKeyMsgData lParam);
         // ReSharper restore InconsistentNaming
 
         [Flags]
@@ -37,7 +37,7 @@ namespace VncSharp
             RightWin = 0x0800,
         }
 
-        protected class KeyNotificationEntry
+        protected class KeyNotificationEntry: IEquatable<KeyNotificationEntry>
         {
             public IntPtr WindowHandle;
             public Int32 KeyCode;
@@ -53,15 +53,19 @@ namespace VncSharp
             }
         }
 
-        public const string HookKeyMsgName = "HOOKKEYMSG-{56BE0940-34DA-11E1-B308-C6714824019B}";
+        private const string HookKeyMsgName = "HOOKKEYMSG-{56BE0940-34DA-11E1-B308-C6714824019B}";
+        private static Int32 _hookKeyMsg;
         public static Int32 HookKeyMsg
         {
             get
             {
-                var m = Win32.RegisterWindowMessage(HookKeyMsgName).ToInt32();
-                if (m == 0)
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                return m;
+                if (_hookKeyMsg == 0)
+                {
+                    _hookKeyMsg = Win32.RegisterWindowMessage(HookKeyMsgName).ToInt32();
+                    if (_hookKeyMsg == 0)
+                        throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
+                return _hookKeyMsg;
             }
         }
 
@@ -79,11 +83,6 @@ namespace VncSharp
         private static IntPtr _hook;
         private static readonly Win32.LowLevelKeyboardProcDelegate LowLevelKeyboardProcStaticDelegate = LowLevelKeyboardProc;
         private static readonly List<KeyNotificationEntry> NotificationEntries = new List<KeyNotificationEntry>();
-        
-        // We can't get the state of the Windows keys with GetAsyncKeyState
-        // or GetKeyboardState so we'll have to keep track of them ourselves.
-        private static Boolean _leftWinKeyState;
-        private static Boolean _rightWinKeyState;
 
         public KeyboardHook()
         {
@@ -124,20 +123,6 @@ namespace VncSharp
             var wParamInt = wParam.ToInt32();
             var result = 0;
 
-            switch (wParamInt)
-            {
-                case Win32.WM_KEYDOWN:
-                case Win32.WM_SYSKEYDOWN:
-                    if (lParam.vkCode == Win32.VK_LWIN) _leftWinKeyState = true;
-                    if (lParam.vkCode == Win32.VK_RWIN) _rightWinKeyState = true;
-                    break;
-                case Win32.WM_KEYUP:
-                case Win32.WM_SYSKEYUP:
-                    if (lParam.vkCode == Win32.VK_LWIN) _leftWinKeyState = false;
-                    if (lParam.vkCode == Win32.VK_RWIN) _rightWinKeyState = false;
-                    break;
-            }
-
             if (nCode == Win32.HC_ACTION)
             {
                 switch (wParamInt)
@@ -161,23 +146,36 @@ namespace VncSharp
             var result = 0;
 
             foreach (var notificationEntry in NotificationEntries)
-                if (GetFocusWindow() == notificationEntry.WindowHandle && notificationEntry.KeyCode == key.vkCode)
+                // It error code is Null, have to ignore the exception
+                // For some unknow raison, sometime GetFocuseWindows throw an exception
+                // Mainly when the station is unlocked, or after an admin password is asked
+                try
                 {
-                    var modifierKeys = GetModifierKeyState();
-                    if (notificationEntry.ModifierKeys != 0 && (modifierKeys & notificationEntry.ModifierKeys) == 0) continue;
-
-                    var wParam = new IntPtr(msg);
-                    var lParam = new HookKeyMsgData
+                    if (GetFocusWindow() == notificationEntry.WindowHandle && notificationEntry.KeyCode == key.vkCode)
                     {
-                        KeyCode = key.vkCode,
-                        ModifierKeys = modifierKeys,
-                        WasBlocked = notificationEntry.Block,
-                    };
+                        var modifierKeys = GetModifierKeyState();
+                        if (!ModifierKeysMatch(notificationEntry.ModifierKeys, modifierKeys)) continue;
 
-                    if (!PostMessage(notificationEntry.WindowHandle, HookKeyMsg, wParam, lParam))
-                        throw new Win32Exception(Marshal.GetLastWin32Error());
+                        var wParam = new IntPtr(msg);
+                        var lParam = new HookKeyMsgData
+                        {
+                            KeyCode = key.vkCode,
+                            ModifierKeys = modifierKeys,
+                            WasBlocked = notificationEntry.Block,
+                        };
 
-                    if (notificationEntry.Block) result = 1;
+                        if (!PostMessage(notificationEntry.WindowHandle, HookKeyMsg, wParam, lParam))
+                            throw new Win32Exception(Marshal.GetLastWin32Error());
+
+                        if (notificationEntry.Block) result = 1;
+                    }
+                }
+                catch (Win32Exception e)
+                {
+                    if (e.NativeErrorCode != 0)
+                    {
+                        throw;
+                    }
                 }
 
             return result;
@@ -187,11 +185,14 @@ namespace VncSharp
         {
             var guiThreadInfo = new Win32.GUITHREADINFO();
             if (!Win32.GetGUIThreadInfo(0, guiThreadInfo))
-                throw new Win32Exception(Marshal.GetLastWin32Error());
-            return guiThreadInfo.hwndFocus;
+            {
+                var except = Marshal.GetLastWin32Error();
+                throw new Win32Exception(except);
+            }
+            return Win32.GetAncestor(guiThreadInfo.hwndFocus, Win32.GA_ROOT);
         }
 
-        protected static Dictionary<Int32, ModifierKeys> ModifierKeyTable = new Dictionary<Int32, ModifierKeys>
+        private static readonly Dictionary<Int32, ModifierKeys> ModifierKeyTable = new Dictionary<Int32, ModifierKeys>
         {
             { Win32.VK_SHIFT, ModifierKeys.Shift },
             { Win32.VK_LSHIFT, ModifierKeys.LeftShift },
@@ -202,6 +203,8 @@ namespace VncSharp
             { Win32.VK_MENU, ModifierKeys.Alt },
             { Win32.VK_LMENU, ModifierKeys.LeftAlt },
             { Win32.VK_RMENU, ModifierKeys.RightAlt },
+            { Win32.VK_LWIN, ModifierKeys.LeftWin },
+            { Win32.VK_RWIN, ModifierKeys.RightWin },
         };
 
         public static ModifierKeys GetModifierKeyState()
@@ -213,11 +216,19 @@ namespace VncSharp
                 if ((Win32.GetAsyncKeyState(pair.Key) & Win32.KEYSTATE_PRESSED) != 0) modifierKeyState |= pair.Value;
             }
 
-            if (_leftWinKeyState || _rightWinKeyState) modifierKeyState |= ModifierKeys.Win;
-            if (_leftWinKeyState) modifierKeyState |= ModifierKeys.LeftWin;
-            if (_rightWinKeyState) modifierKeyState |= ModifierKeys.RightWin;
+            if ((modifierKeyState & ModifierKeys.LeftWin) != 0) modifierKeyState |= ModifierKeys.Win;
+            if ((modifierKeyState & ModifierKeys.RightWin) != 0) modifierKeyState |= ModifierKeys.Win;
 
             return modifierKeyState;
+        }
+
+        private static Boolean ModifierKeysMatch(ModifierKeys requestedKeys, ModifierKeys pressedKeys)
+        {
+            if ((requestedKeys & ModifierKeys.Shift) != 0) pressedKeys &= ~(ModifierKeys.LeftShift | ModifierKeys.RightShift);
+            if ((requestedKeys & ModifierKeys.Control) != 0) pressedKeys &= ~(ModifierKeys.LeftControl | ModifierKeys.RightControl);
+            if ((requestedKeys & ModifierKeys.Alt) != 0) pressedKeys &= ~(ModifierKeys.LeftAlt | ModifierKeys.RightAlt);
+            if ((requestedKeys & ModifierKeys.Win) != 0) pressedKeys &= ~(ModifierKeys.LeftWin | ModifierKeys.RightWin);
+            return requestedKeys == pressedKeys;
         }
 
         public static void RequestKeyNotification(IntPtr windowHandle, Int32 keyCode, Boolean block)
@@ -239,6 +250,24 @@ namespace VncSharp
                 if (notificationEntry == newNotificationEntry) return;
 
             NotificationEntries.Add(newNotificationEntry);
+        }
+
+        public static void CancelKeyNotification(IntPtr windowHandle, Int32 keyCode, Boolean block)
+        {
+            CancelKeyNotification(windowHandle, keyCode, ModifierKeys.None, block);
+        }
+
+        private static void CancelKeyNotification(IntPtr windowHandle, Int32 keyCode, ModifierKeys modifierKeys = ModifierKeys.None, Boolean block = false)
+        {
+            var notificationEntry = new KeyNotificationEntry
+            {
+                WindowHandle = windowHandle,
+                KeyCode = keyCode,
+                ModifierKeys = modifierKeys,
+                Block = block,
+            };
+
+            NotificationEntries.Remove(notificationEntry);
         }
     }
 }
