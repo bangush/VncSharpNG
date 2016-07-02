@@ -18,7 +18,6 @@
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 using System.IO;
 
 namespace VncSharp.Encodings
@@ -62,7 +61,7 @@ namespace VncSharp.Encodings
 					preader = new PixelReader8(reader, framebuffer, rfb);
 					break;
 				default:
-					throw new ArgumentOutOfRangeException("BitsPerPixel", framebuffer.BitsPerPixel, "Valid VNC Pixel Widths are 8, 16 or 32 bits.");
+					throw new ArgumentOutOfRangeException(nameof(framebuffer.BitsPerPixel), framebuffer.BitsPerPixel, "Valid VNC Pixel Widths are 8, 16 or 32 bits.");
 			}
 		}
 
@@ -84,7 +83,7 @@ namespace VncSharp.Encodings
 		/// After calling Decode() an EncodedRectangle can be drawn to a Bitmap, which is the local representation of the remote desktop.
 		/// </summary>
 		/// <param name="desktop">The image the represents the remote desktop. NOTE: this image will be altered.</param>
-		public unsafe virtual void Draw(Bitmap desktop)
+		public virtual unsafe void Draw(Bitmap desktop)
 		{
 			// Lock the bitmap's scan-lines in RAM so we can iterate over them using pointers and update the area
 			// defined in rectangle.

@@ -536,7 +536,7 @@ namespace ComponentAce.Compression.Libs.zlib
 					if ((e & 16) != 0)
 					{
 						e &= 15;
-						c = tp[(tp_index + t) * 3 + 2] + ((int) b & inflate_mask[e]);
+						c = tp[(tp_index + t) * 3 + 2] + (b & inflate_mask[e]);
 						
 						b >>= e; k -= e;
 						

@@ -15,7 +15,6 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 
@@ -41,11 +40,11 @@ namespace VncSharp.Encodings
 		{
 			// Read the source point from which to begin copying pixels
 			source = new Point();
-			source.X = (int) rfb.ReadUInt16();
-			source.Y = (int) rfb.ReadUInt16();
+			source.X = rfb.ReadUInt16();
+			source.Y = rfb.ReadUInt16();
 		}
 
-		public unsafe override void Draw(Bitmap desktop)
+		public override unsafe void Draw(Bitmap desktop)
 		{
 			// Given a source area, copy this region to the point specified by destination
 			BitmapData bmpd = desktop.LockBits(new Rectangle(new Point(0,0), desktop.Size),

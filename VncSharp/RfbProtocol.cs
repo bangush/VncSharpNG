@@ -17,14 +17,11 @@
 
 using System;
 using System.IO;
-using System.Net;
 using System.Drawing;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Diagnostics;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using ComponentAce.Compression.Libs.zlib;
 
 namespace VncSharp
@@ -130,7 +127,7 @@ namespace VncSharp
 		/// </summary>
 		public float ServerVersion {
 			get {
-				return (float) verMajor + (verMinor * 0.1f);
+				return verMajor + (verMinor * 0.1f);
 			}
 		}
 
@@ -329,8 +326,8 @@ namespace VncSharp
 		/// <returns>Returns a Framebuffer object representing the geometry and properties of the remote host.</returns>
 		public Framebuffer ReadServerInit()
 		{
-			int w = (int) reader.ReadUInt16();
-			int h = (int) reader.ReadUInt16();
+			int w = reader.ReadUInt16();
+			int h = reader.ReadUInt16();
 			Framebuffer buffer = Framebuffer.FromPixelFormat(reader.ReadBytes(16), w, h);
 			int length = (int) reader.ReadUInt32();
 
@@ -418,7 +415,7 @@ namespace VncSharp
 		/// <summary>
 		/// Sends text in the client's Cut Buffer to the server. See RFB Doc v. 3.8 section 6.3.7.
 		/// </summary>
-		/// <param name="text">The text to be sent to the server.</param></param>
+		/// <param name="text">The text to be sent to the server.</param>
 		public void WriteClientCutText(string text)
 		{
 			writer.Write(CLIENT_CUT_TEXT);
@@ -434,7 +431,7 @@ namespace VncSharp
 		/// <returns>Returns the message type as an integer.</returns>
 		public int ReadServerMessageType()
 		{
-			return (int) reader.ReadByte();
+			return reader.ReadByte();
 		}
 
 		/// <summary>
@@ -444,7 +441,7 @@ namespace VncSharp
 		public int ReadFramebufferUpdate()
 		{
 			ReadPadding(1);
-			return (int) reader.ReadUInt16();
+			return reader.ReadUInt16();
 		}
 
 		/// <summary>
@@ -455,10 +452,10 @@ namespace VncSharp
 		public void ReadFramebufferUpdateRectHeader(out Rectangle rectangle, out int encoding)
 		{
 			rectangle = new Rectangle();
-			rectangle.X = (int) reader.ReadUInt16();
-			rectangle.Y = (int) reader.ReadUInt16();
-			rectangle.Width = (int) reader.ReadUInt16();
-			rectangle.Height = (int) reader.ReadUInt16();
+			rectangle.X = reader.ReadUInt16();
+			rectangle.Y = reader.ReadUInt16();
+			rectangle.Width = reader.ReadUInt16();
+			rectangle.Height = reader.ReadUInt16();
 			encoding = (int) reader.ReadUInt32();
 		}
 		
@@ -625,7 +622,7 @@ namespace VncSharp
 			public override ushort ReadUInt16()
 			{
 				FillBuff(2);
-				return (ushort)(((uint)buff[1]) | ((uint)buff[0]) << 8);
+				return (ushort)(buff[1] | ((uint)buff[0]) << 8);
 				
 			}
 			
@@ -638,13 +635,13 @@ namespace VncSharp
 			public override uint ReadUInt32()
 			{
 				FillBuff(4);
-				return (uint)(((uint)buff[3]) & 0xFF | ((uint)buff[2]) << 8 | ((uint)buff[1]) << 16 | ((uint)buff[0]) << 24);
+				return ((uint)buff[3]) & 0xFF | ((uint)buff[2]) << 8 | ((uint)buff[1]) << 16 | ((uint)buff[0]) << 24;
 			}
 			
 			public override int ReadInt32()
 			{
 				FillBuff(4);
-				return (int)(buff[3] | buff[2] << 8 | buff[1] << 16 | buff[0] << 24);
+				return buff[3] | buff[2] << 8 | buff[1] << 16 | buff[0] << 24;
 			}
 
 			private void FillBuff(int totalBytes)
@@ -753,7 +750,7 @@ namespace VncSharp
 					throw new Exception("ZRLE decoder: Invalid compressed stream size");
 
 				// BigEndian to LittleEndian conversion
-				int compressedBufferSize = (int)(buff[3] | buff[2] << 8 | buff[1] << 16 | buff[0] << 24);
+				int compressedBufferSize = buff[3] | buff[2] << 8 | buff[1] << 16 | buff[0] << 24;
 				if (compressedBufferSize > 64 * 1024 * 1024)
 					throw new Exception("ZRLE decoder: Invalid compressed data size");
 

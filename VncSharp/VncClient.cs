@@ -391,7 +391,7 @@ namespace VncSharp
                                     // In order to play nicely with WinForms controls, we do a check here to 
                                     // see if it is necessary to synchronize this event with the UI thread.
                                     if (VncUpdate.Target is System.Windows.Forms.Control) {
-                                        Control target = VncUpdate.Target as Control;
+                                        Control target = (Control) VncUpdate.Target;
                                         if (target != null)
                                             target.Invoke(VncUpdate, new object[] { this, e });
                                     } else {
@@ -427,7 +427,7 @@ namespace VncSharp
 			// see if it is necessary to synchronize this event with the UI thread.
 			if (ConnectionLost != null && 
 				ConnectionLost.Target is System.Windows.Forms.Control) {
-				Control target = ConnectionLost.Target as Control;
+				Control target = (Control) ConnectionLost.Target;
 
 				if (target != null)
 					target.Invoke(ConnectionLost, new object[] {this, EventArgs.Empty});
@@ -442,7 +442,7 @@ namespace VncSharp
             // see if it is necessary to synchronize this event with the UI thread.
             if (ServerCutText != null &&
                 ServerCutText.Target is System.Windows.Forms.Control) {
-                Control target = ServerCutText.Target as Control;
+                Control target = (Control) ServerCutText.Target;
 
                 if (target != null)
                     target.Invoke(ServerCutText, new object[] { this, EventArgs.Empty });

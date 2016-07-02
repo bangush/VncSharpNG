@@ -42,7 +42,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * Jean-loup Gailly(jloup@gzip.org) and Mark Adler(madler@alumni.caltech.edu)
 * and contributors of zlib.
 */
-using System;
+
 namespace ComponentAce.Compression.Libs.zlib
 {
 	
@@ -53,7 +53,7 @@ namespace ComponentAce.Compression.Libs.zlib
 			flush_Renamed_Field = zlibConst.Z_NO_FLUSH;
 			buf = new byte[bufsize];
 		}
-		virtual public int FlushMode
+		public virtual int FlushMode
 		{
 			get
 			{
@@ -67,7 +67,7 @@ namespace ComponentAce.Compression.Libs.zlib
 			
 		}
 		/// <summary> Returns the total number of bytes input so far.</summary>
-		virtual public long TotalIn
+		public virtual long TotalIn
 		{
 			get
 			{
@@ -76,7 +76,7 @@ namespace ComponentAce.Compression.Libs.zlib
 			
 		}
 		/// <summary> Returns the total number of bytes output so far.</summary>
-		virtual public long TotalOut
+		public virtual long TotalOut
 		{
 			get
 			{
@@ -117,7 +117,7 @@ namespace ComponentAce.Compression.Libs.zlib
 		//UPGRADE_TODO: The differences in the Expected value  of parameters for method 'WriteByte'  may cause compilation errors.  'ms-help://MS.VSCC.2003/commoner/redir/redirect.htm?keyword="jlca1092_3"'
 		public override  void  WriteByte(byte b)
 		{
-			WriteByte((int) b);
+			WriteByte(b);
 		}
 		
 		public override void  Write(System.Byte[] b1, int off, int len)

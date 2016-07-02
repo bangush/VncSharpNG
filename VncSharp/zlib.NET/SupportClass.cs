@@ -1,7 +1,4 @@
 
-using System;
-
-
 namespace ComponentAce.Compression.Libs.zlib
 {
 	public class SupportClass
@@ -118,7 +115,7 @@ namespace ComponentAce.Compression.Libs.zlib
 				return -1;
                 
 			for(int i = start; i < start + bytesRead; i++)
-				target[i] = (byte)receiver[i];
+				target[i] = receiver[i];
                 
 			return bytesRead;
 		}
